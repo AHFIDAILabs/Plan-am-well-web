@@ -1,0 +1,38 @@
+import { NextRequest, NextResponse } from "next/server";
+import { backendFetch } from "@/lib/backendFetch";
+import { withAuthErrorHandling } from "@/lib/routeHelpers";
+import { verifyCsrf, csrfRejection } from "@/lib/csrf";
+
+const ALLOWED_FIELDS = [
+  "name",
+  "phone",
+  "gender",
+  "dateOfBirth",
+  "homeAddress",
+  "city",
+  "state",
+  "lga",
+] as const;
+
+export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  if (!verifyCsrf(req)) {
+    return csrfRejection();
+  }
+
+  const { id } = await params;
+  const body = await req.json();
+
+  const payload: Record<string, unknown> = {};
+  for (const field of ALLOWED_FIELDS) {
+    if (body[field] !== undefined) payload[field] = body[field];
+  }
+
+  return withAuthErrorHandling(async () => {
+    const backendRes = await backendFetch(req, `/users/${encodeURIComponent(id)}`, {
+      method: "PUT",
+      body: JSON.stringify(payload),
+    });
+    const data = await backendRes.json();
+    return NextResponse.json(data, { status: backendRes.status });
+  });
+}

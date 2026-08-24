@@ -1,26 +1,107 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Brand triad (Material-3-style, collapsed to a single fixed light theme —
+     this product has no dark mode, so fixed/fixed-dim pairs from the source
+     token system are intentionally not duplicated here) */
+  --color-primary: #b10045;
+  --color-primary-dark: #8f0037;
+  --color-on-primary: #ffffff;
+  --color-primary-container: #d81e5b;
+  --color-on-primary-container: #fff3f3;
+
+  --color-secondary: #835500;
+  --color-on-secondary: #ffffff;
+  --color-secondary-container: #feae2c;
+  --color-on-secondary-container: #6b4500;
+
+  --color-tertiary: #0058a4;
+  --color-on-tertiary: #ffffff;
+  --color-tertiary-container: #0b71cd;
+  --color-on-tertiary-container: #f3f5ff;
+
+  --color-error: #ba1a1a;
+  --color-on-error: #ffffff;
+  --color-error-container: #ffdad6;
+  --color-on-error-container: #93000a;
+
+  /* Category accent pairs (bg/icon), rotated per feature card — repointed
+     onto the new palette's fixed containers so they read as one system */
+  --color-accent-pink-bg: #ffd9de;
+  --color-accent-pink-fg: #900037;
+  --color-accent-amber-bg: #ffddb4;
+  --color-accent-amber-fg: #633f00;
+  --color-accent-gray-bg: #f0eded;
+  --color-accent-gray-fg: #5b4043;
+  --color-accent-blue-bg: #d4e3ff;
+  --color-accent-blue-fg: #004786;
+
+  /* Text */
+  --color-heading: #1c1b1b;
+  --color-body: #5b4043;
+  --color-muted: #7a6265;
+
+  /* Surfaces */
+  --color-page-bg: #fcf9f8;
+  --color-card-bg: #ffffff;
+  --color-input-bg: #f0eded;
+  --color-border: #e3bdc2;
+  --color-outline: #8f6f73;
+
+  /* Shape + elevation */
+  --radius-card: 28px;
+  --shadow-atmospheric: 0 4px 20px rgba(0, 0, 0, 0.04);
+
+  --background: var(--color-page-bg);
+  --foreground: var(--color-body);
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-primary: var(--color-primary);
+  --color-primary-dark: var(--color-primary-dark);
+  --color-on-primary: var(--color-on-primary);
+  --color-primary-container: var(--color-primary-container);
+  --color-on-primary-container: var(--color-on-primary-container);
+  --color-secondary: var(--color-secondary);
+  --color-on-secondary: var(--color-on-secondary);
+  --color-secondary-container: var(--color-secondary-container);
+  --color-on-secondary-container: var(--color-on-secondary-container);
+  --color-tertiary: var(--color-tertiary);
+  --color-on-tertiary: var(--color-on-tertiary);
+  --color-tertiary-container: var(--color-tertiary-container);
+  --color-on-tertiary-container: var(--color-on-tertiary-container);
+  --color-error: var(--color-error);
+  --color-on-error: var(--color-on-error);
+  --color-error-container: var(--color-error-container);
+  --color-on-error-container: var(--color-on-error-container);
+  --color-accent-pink-bg: var(--color-accent-pink-bg);
+  --color-accent-pink-fg: var(--color-accent-pink-fg);
+  --color-accent-amber-bg: var(--color-accent-amber-bg);
+  --color-accent-amber-fg: var(--color-accent-amber-fg);
+  --color-accent-gray-bg: var(--color-accent-gray-bg);
+  --color-accent-gray-fg: var(--color-accent-gray-fg);
+  --color-accent-blue-bg: var(--color-accent-blue-bg);
+  --color-accent-blue-fg: var(--color-accent-blue-fg);
+  --color-heading: var(--color-heading);
+  --color-body: var(--color-body);
+  --color-muted: var(--color-muted);
+  --color-page-bg: var(--color-page-bg);
+  --color-card-bg: var(--color-card-bg);
+  --color-input-bg: var(--color-input-bg);
+  --color-border: var(--color-border);
+  --color-outline: var(--color-outline);
+  --radius-card: var(--radius-card);
+  --shadow-atmospheric: var(--shadow-atmospheric);
+  --font-sans: var(--font-inter);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
+/* This brand is a deliberate, single fixed light palette (private/discreet
+   health product) — no dark-mode variant is defined anywhere in the design
+   system this was built from, so none is added here. */
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--color-page-bg);
+  color: var(--color-body);
 }
