@@ -269,9 +269,14 @@ export function ChatThread({ appointmentId, basePath }: { appointmentId: string;
   }
 
   const isDoctor = user?.role === "Doctor";
+  // Either side can be null if that account was since deleted, leaving a
+  // dangling reference — doctorFullName assumes a real object and throws on
+  // null (same class of bug fixed in ConversationList.tsx).
   const otherName = isDoctor
     ? conversation.participants.userId?.name ?? "Patient"
-    : doctorFullName(conversation.participants.doctorId);
+    : conversation.participants.doctorId
+    ? doctorFullName(conversation.participants.doctorId)
+    : "Doctor";
 
   return (
     <div className="flex h-[calc(100vh-220px)] flex-col rounded-card bg-card-bg shadow-atmospheric">

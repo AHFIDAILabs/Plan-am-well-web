@@ -46,11 +46,34 @@ export function ConversationList({ basePath }: { basePath: string }) {
   return (
     <div className="mt-6 flex flex-col gap-2">
       {conversations.map((conv) => {
-        const name = isDoctor ? conv.participants.userId?.name ?? "Patient" : doctorFullName(conv.participants.doctorId);
-        const imageUrl = isDoctor ? userImageUrl(conv.participants.userId) : doctorImageUrl(conv.participants.doctorId);
+        // Either side of a conversation can be null if that account was
+        // since deleted — userImageUrl/doctorImageUrl/doctorFullName all
+        // assume a real object and throw on null, which previously crashed
+        // this whole list (and, with no error boundary anywhere in the app,
+        // the page) the moment one conversation had a missing participant.
+        const name = isDoctor
+          ? conv.participants.userId?.name ?? "Patient"
+          : conv.participants.doctorId
+          ? doctorFullName(conv.participants.doctorId)
+          : "Doctor";
+        const imageUrl = isDoctor
+          ? conv.participants.userId
+            ? userImageUrl(conv.participants.userId)
+            : null
+          : conv.participants.doctorId
+          ? doctorImageUrl(conv.participants.doctorId)
+          : null;
         const unread = isDoctor ? conv.unreadCount.doctor : conv.unreadCount.user;
         const appointmentId =
-          typeof conv.appointmentId === "string" ? conv.appointmentId : conv.appointmentId._id;
+          typeof conv.appointmentId === "string"
+            ? conv.appointmentId
+            : conv.appointmentId
+            ? conv.appointmentId._id
+            : null;
+
+        // No resolvable appointment to link to — not navigable, skip it
+        // rather than rendering a link to `${basePath}/null`.
+        if (!appointmentId) return null;
 
         return (
           <Link

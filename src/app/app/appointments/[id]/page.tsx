@@ -93,7 +93,12 @@ function AppointmentDetailPageContent() {
     return <p className="text-sm text-muted">Loading appointment...</p>;
   }
 
-  const imageUrl = doctorImageUrl(appointment.doctorId);
+  // appointment.doctorId can be null if that doctor account was since
+  // deleted, leaving a dangling reference — guard before dereferencing
+  // (same class of bug fixed in ConversationList.tsx/ChatThread.tsx).
+  const doctor = appointment.doctorId;
+  const imageUrl = doctor ? doctorImageUrl(doctor) : null;
+  const doctorName = doctor ? doctorFullName(doctor) : "Doctor";
   const canCancel = CANCELLABLE_STATUSES.includes(appointment.status);
 
   return (
@@ -107,17 +112,17 @@ function AppointmentDetailPageContent() {
           <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-full bg-accent-pink-bg">
             {imageUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={imageUrl} alt={doctorFullName(appointment.doctorId)} className="h-full w-full object-cover" />
+              <img src={imageUrl} alt={doctorName} className="h-full w-full object-cover" />
             ) : (
               <div className="flex h-full w-full items-center justify-center text-lg font-bold text-primary">
-                {appointment.doctorId.firstName[0]}
-                {appointment.doctorId.lastName[0]}
+                {doctor ? doctor.firstName[0] : "D"}
+                {doctor ? doctor.lastName[0] : ""}
               </div>
             )}
           </div>
           <div>
-            <p className="font-bold text-heading">{doctorFullName(appointment.doctorId)}</p>
-            <p className="text-sm text-muted">{appointment.doctorId.specialization}</p>
+            <p className="font-bold text-heading">{doctorName}</p>
+            <p className="text-sm text-muted">{doctor?.specialization ?? ""}</p>
           </div>
         </div>
 
@@ -164,7 +169,7 @@ function AppointmentDetailPageContent() {
             </Link>
           )}
           <Link href={`/app/messages/${appointment._id}`}>
-            <Button variant={canJoinCall ? "outline" : "primary"}>Message {doctorFullName(appointment.doctorId)}</Button>
+            <Button variant={canJoinCall ? "outline" : "primary"}>Message {doctorName}</Button>
           </Link>
           {canCancel && (
             <Button variant="outline" loading={cancelling} onClick={handleCancel}>
