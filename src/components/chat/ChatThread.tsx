@@ -161,6 +161,11 @@ export function ChatThread({ appointmentId, basePath }: { appointmentId: string;
     socket.on("message-edited", refreshIfThisConversation);
     socket.on("message-deleted", refreshIfThisConversation);
     socket.on("conversation-unlocked", refreshIfThisConversation);
+    // Was missing entirely — without it, an incoming call request only
+    // surfaced whenever the next slow poll happened to fire, easily after
+    // the request's own 60s expiry, meaning a mobile caller could ring web
+    // and never have it shown in time.
+    socket.on("video-call-request", refreshIfThisConversation);
     socket.on("appointment-ended", onAppointmentEnded);
     socket.on("typing-indicator", onTyping);
 
@@ -170,6 +175,7 @@ export function ChatThread({ appointmentId, basePath }: { appointmentId: string;
       socket.off("message-edited", refreshIfThisConversation);
       socket.off("message-deleted", refreshIfThisConversation);
       socket.off("conversation-unlocked", refreshIfThisConversation);
+      socket.off("video-call-request", refreshIfThisConversation);
       socket.off("appointment-ended", onAppointmentEnded);
       socket.off("typing-indicator", onTyping);
       if (typingAutoClearRef.current) clearTimeout(typingAutoClearRef.current);

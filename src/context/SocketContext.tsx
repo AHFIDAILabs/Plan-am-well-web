@@ -15,9 +15,14 @@ import { startIncomingRing, stopIncomingRing } from "@/lib/ringtone";
 const TOKEN_REFRESH_MS = 8 * 60 * 1000;
 
 interface IncomingCall {
-  appointmentId: string;
+  // Only set for a direct appointment-page-initiated call. A chat-initiated
+  // request doesn't know its appointmentId up front — the respond endpoint
+  // resolves that once accepted (see acceptCall below).
+  appointmentId?: string;
   callType?: "audio" | "video";
   callerName?: string;
+  conversationId?: string;
+  videoRequestId?: string;
 }
 
 interface SocketContextValue {
@@ -74,6 +79,21 @@ export function SocketProvider({ children }: { children: ReactNode }) {
     newSocket.on("connect", () => setConnected(true));
     newSocket.on("disconnect", () => setConnected(false));
     newSocket.on("call-ringing", (payload: IncomingCall) => setIncomingCall(payload));
+    // A chat-initiated call previously only ever showed up here if the
+    // recipient's ChatThread for that exact conversation happened to already
+    // be open — every other page (including this global modal, which is
+    // what actually reaches someone regardless of what they're looking at)
+    // never even knew a request existed. call-ringing was the only event
+    // wired up globally; this is its chat-originated counterpart.
+    newSocket.on(
+      "video-call-request",
+      (payload: { conversationId: string; requesterName: string; requestId: string }) =>
+        setIncomingCall({
+          callerName: payload.requesterName,
+          conversationId: payload.conversationId,
+          videoRequestId: payload.requestId,
+        })
+    );
     // socket.io-client's own reconnection (reconnectionAttempts: 5) gives up
     // permanently once exhausted — an outage longer than that would leave
     // this socket dead for the rest of the session with nothing to revive
@@ -119,17 +139,40 @@ export function SocketProvider({ children }: { children: ReactNode }) {
     return () => stopIncomingRing();
   }, [incomingCall]);
 
-  function acceptCall() {
+  async function acceptCall() {
     if (!incomingCall) return;
-    const { appointmentId } = incomingCall;
+    const { appointmentId, conversationId, videoRequestId } = incomingCall;
     setIncomingCall(null);
+
+    if (conversationId && videoRequestId) {
+      // Chat-initiated — the appointmentId isn't known until the backend
+      // resolves it here (see requestVideoCall/respond in chatController.ts).
+      const { data } = await apiPost<{
+        success: boolean;
+        data?: { appointmentId: string; callType?: "audio" | "video" };
+      }>(`/api/chat/conversation/${conversationId}/video-request/${videoRequestId}/respond`, { accept: true });
+      if (data.success && data.data) {
+        const type = data.data.callType === "audio" ? "?type=audio" : "";
+        router.push(`${portalBase}/appointments/${data.data.appointmentId}/call${type}`);
+      }
+      return;
+    }
+
     router.push(`${portalBase}/appointments/${appointmentId}/call`);
   }
 
   async function declineCall() {
     if (!incomingCall) return;
-    const { appointmentId } = incomingCall;
+    const { appointmentId, conversationId, videoRequestId } = incomingCall;
     setIncomingCall(null);
+
+    if (conversationId && videoRequestId) {
+      await apiPost(`/api/chat/conversation/${conversationId}/video-request/${videoRequestId}/respond`, {
+        accept: false,
+      });
+      return;
+    }
+
     await apiPost("/api/video/decline", { appointmentId });
   }
 
