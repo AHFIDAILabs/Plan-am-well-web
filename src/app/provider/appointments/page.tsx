@@ -174,12 +174,14 @@ export default function DoctorAppointmentsPage() {
                     <Link href={`/provider/messages/${appt._id}`} className="text-xs font-semibold text-primary">
                       Message
                     </Link>
-                    <Link
-                      href={`/provider/records/${appt.userId._id}?appointmentId=${appt._id}`}
-                      className="text-xs font-semibold text-primary"
-                    >
-                      Medical Record
-                    </Link>
+                    {appt.userId?._id && (
+                      <Link
+                        href={`/provider/records/${appt.userId._id}?appointmentId=${appt._id}`}
+                        className="text-xs font-semibold text-primary"
+                      >
+                        Medical Record
+                      </Link>
+                    )}
                   </div>
                 </div>
               </div>
