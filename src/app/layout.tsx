@@ -3,6 +3,7 @@ import { Inter } from "next/font/google";
 import { AuthProvider } from "@/context/AuthContext";
 import { SocketProvider } from "@/context/SocketContext";
 import { NotificationProvider } from "@/context/NotificationContext";
+import { ToastProvider } from "@/context/ToastContext";
 import { ScreenViewTracker } from "@/components/analytics/ScreenViewTracker";
 import "./globals.css";
 
@@ -27,10 +28,12 @@ export default function RootLayout({
       <body className={`${inter.variable} font-sans antialiased`}>
         <AuthProvider>
           <SocketProvider>
-            <NotificationProvider>
-              <ScreenViewTracker />
-              {children}
-            </NotificationProvider>
+            <ToastProvider>
+              <NotificationProvider>
+                <ScreenViewTracker />
+                {children}
+              </NotificationProvider>
+            </ToastProvider>
           </SocketProvider>
         </AuthProvider>
       </body>

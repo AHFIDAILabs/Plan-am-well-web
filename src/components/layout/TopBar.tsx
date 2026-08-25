@@ -213,11 +213,15 @@ export function TopBar({
 
         <Link
           href={notificationsHref}
-          aria-label="Notifications"
+          aria-label={unreadCount > 0 ? `Notifications, ${unreadCount} unread` : "Notifications"}
           className="relative flex h-9 w-9 items-center justify-center rounded-full text-heading hover:bg-input-bg"
         >
           <Icon path={ICONS.notifications} className="h-5 w-5" />
-          {unreadCount > 0 && <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-error" />}
+          {unreadCount > 0 && (
+            <span className="absolute -right-1 -top-1 flex h-4.5 min-w-4.5 items-center justify-center rounded-full bg-error px-1 text-[10px] font-bold leading-none text-white">
+              {unreadCount > 99 ? "99+" : unreadCount}
+            </span>
+          )}
         </Link>
 
         <Link href={profileHref} className="hidden items-center gap-2 rounded-full py-1 pl-1 pr-3 hover:bg-input-bg md:flex">

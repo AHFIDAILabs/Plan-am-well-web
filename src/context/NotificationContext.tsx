@@ -4,6 +4,7 @@ import { createContext, useContext, useEffect, useState, useCallback, ReactNode 
 import { apiGet, apiPut, apiDelete } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import { useSocket } from "@/context/SocketContext";
+import { useToast } from "@/context/ToastContext";
 import { AppNotification } from "@/lib/types";
 
 interface NotificationContextValue {
@@ -27,6 +28,7 @@ const NotificationContext = createContext<NotificationContextValue>({
 export function NotificationProvider({ children }: { children: ReactNode }) {
   const { user, isAnonymous } = useAuth();
   const { socket } = useSocket();
+  const { toast } = useToast();
   const [notifications, setNotifications] = useState<AppNotification[] | null>(null);
   const [unreadCount, setUnreadCount] = useState(0);
 
@@ -68,7 +70,14 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
         if (prev.some((n) => n._id === notification._id)) return prev;
         return [notification, ...prev];
       });
-      if (!notification.isRead) setUnreadCount((prev) => prev + 1);
+      if (!notification.isRead) {
+        setUnreadCount((prev) => prev + 1);
+        toast({
+          title: notification.title,
+          description: notification.message,
+          variant: notification.type === "comment_flagged" ? "error" : "default",
+        });
+      }
     }
 
     // Reconnects can happen after a dropped connection missed events —
@@ -84,7 +93,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       socket.off("notification", handleNewNotification);
       socket.off("connect", handleReconnect);
     };
-  }, [socket, canReceive, refresh]);
+  }, [socket, canReceive, refresh, toast]);
 
   async function markAsRead(id: string) {
     await apiPut(`/api/notifications/${id}/read`);
