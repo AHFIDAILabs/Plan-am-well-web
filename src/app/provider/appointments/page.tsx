@@ -164,12 +164,20 @@ export default function DoctorAppointmentsPage() {
                       {appt.status.replace(/-/g, " ")}
                     </span>
                     {joinableCalls[appt._id] && (
-                      <Link
-                        href={`/provider/appointments/${appt._id}/call`}
-                        className="text-xs font-semibold text-green-700"
-                      >
-                        Join Call
-                      </Link>
+                      <>
+                        <Link
+                          href={`/provider/appointments/${appt._id}/call`}
+                          className="text-xs font-semibold text-green-700"
+                        >
+                          Join Call
+                        </Link>
+                        <Link
+                          href={`/provider/appointments/${appt._id}/call?type=audio`}
+                          className="text-xs font-semibold text-green-700"
+                        >
+                          Voice
+                        </Link>
+                      </>
                     )}
                     <Link href={`/provider/messages/${appt._id}`} className="text-xs font-semibold text-primary">
                       Message

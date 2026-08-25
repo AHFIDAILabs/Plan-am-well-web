@@ -12,6 +12,22 @@ function readCsrfCookie(): string | undefined {
   return match ? decodeURIComponent(match[1]) : undefined;
 }
 
+// The double-submit check itself is correct (verified: register → cookie
+// issued → matching header → 200) — a 403 here means the browser's CSRF
+// cookie is stale or mismatched for whatever reason (e.g. it's shared per
+// origin across tabs, and a different login in another tab can leave one
+// tab holding an inconsistent cookie). Not fixable by retrying the same
+// request, but a raw "Invalid or missing CSRF token" is a dead end for
+// whoever hits it — this at least tells them what will actually fix it.
+function withFriendlyCsrfMessage<T>(status: number, data: T): T {
+  if (status !== 403) return data;
+  const payload = data as { success?: boolean; message?: string };
+  if (payload?.message === "Invalid or missing CSRF token") {
+    return { ...payload, message: "Your session needs a refresh — please reload the page and try again." } as T;
+  }
+  return data;
+}
+
 async function csrfWrite<T = unknown>(
   method: "POST" | "PUT" | "PATCH" | "DELETE",
   path: string,
@@ -28,7 +44,7 @@ async function csrfWrite<T = unknown>(
     credentials: "include",
   });
   const data = (await res.json().catch(() => ({}))) as T;
-  return { status: res.status, data };
+  return { status: res.status, data: withFriendlyCsrfMessage(res.status, data) };
 }
 
 export function apiPost<T = unknown>(path: string, body?: unknown) {
@@ -52,7 +68,7 @@ async function csrfWriteForm<T = unknown>(
     credentials: "include",
   });
   const data = (await res.json().catch(() => ({}))) as T;
-  return { status: res.status, data };
+  return { status: res.status, data: withFriendlyCsrfMessage(res.status, data) };
 }
 
 export function apiPostForm<T = unknown>(path: string, formData: FormData) {

@@ -164,9 +164,14 @@ function AppointmentDetailPageContent() {
 
         <div className="mt-6 flex flex-wrap gap-3">
           {canJoinCall && (
-            <Link href={`/app/appointments/${appointment._id}/call`}>
-              <Button className="bg-green-600 text-white hover:bg-green-700">Join Call</Button>
-            </Link>
+            <>
+              <Link href={`/app/appointments/${appointment._id}/call`}>
+                <Button className="bg-green-600 text-white hover:bg-green-700">Join Video Call</Button>
+              </Link>
+              <Link href={`/app/appointments/${appointment._id}/call?type=audio`}>
+                <Button variant="outline">Join Voice Call</Button>
+              </Link>
+            </>
           )}
           <Link href={`/app/messages/${appointment._id}`}>
             <Button variant={canJoinCall ? "outline" : "primary"}>Message {doctorName}</Button>

@@ -43,7 +43,19 @@ export function SocketProvider({ children }: { children: ReactNode }) {
     const token = data.data?.token;
     if (!token) return;
 
-    socketRef.current?.disconnect();
+    if (socketRef.current) {
+      // Already have a live socket for this session — never replace the
+      // object. Every consumer holding this reference (VideoCallRoom most
+      // critically) would silently stop receiving events the moment the
+      // underlying socket changed, which is exactly what happened here every
+      // TOKEN_REFRESH_MS: a fresh io() instance replaced the old one mid-call,
+      // React's effect cleanup closed the peer connection in response, and
+      // nothing ever reconnected it. socket.io-client re-reads `auth` on its
+      // own next (re)connect attempt, so just keeping it fresh here is enough
+      // — no forced disconnect needed for an otherwise-healthy connection.
+      socketRef.current.auth = { token };
+      return;
+    }
 
     const newSocket = io(process.env.NEXT_PUBLIC_SOCKET_URL, {
       auth: { token },
@@ -62,6 +74,14 @@ export function SocketProvider({ children }: { children: ReactNode }) {
     newSocket.on("connect", () => setConnected(true));
     newSocket.on("disconnect", () => setConnected(false));
     newSocket.on("call-ringing", (payload: IncomingCall) => setIncomingCall(payload));
+    // socket.io-client's own reconnection (reconnectionAttempts: 5) gives up
+    // permanently once exhausted — an outage longer than that would leave
+    // this socket dead for the rest of the session with nothing to revive
+    // it now that the 8-minute forced-replacement is gone. One more attempt
+    // via a fresh handshake, matching mobile's socketService.ts fallback.
+    newSocket.io.on("reconnect_failed", () => {
+      newSocket.connect();
+    });
 
     socketRef.current = newSocket;
     setSocket(newSocket);

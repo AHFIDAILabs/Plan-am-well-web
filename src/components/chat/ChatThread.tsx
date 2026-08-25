@@ -21,7 +21,16 @@ import { useSocket } from "@/context/SocketContext";
 import { Conversation, ChatMessage, doctorFullName } from "@/lib/types";
 import { logEvent } from "@/lib/analytics";
 
-const POLL_INTERVAL_MS = 5000;
+// Real-time delivery (below) handles the common case instantly now — this
+// interval is just a fallback safety net for a missed/dropped socket event,
+// so it can be much slower than the old 5s "polling is the only mechanism"
+// value.
+const POLL_INTERVAL_MS = 30000;
+const TYPING_DEBOUNCE_MS = 2000;
+// Safety net only — the real "stop typing" signal is the sender's own
+// isTyping:false emit after TYPING_DEBOUNCE_MS. This just guards against a
+// lost event leaving the indicator stuck on.
+const TYPING_AUTO_CLEAR_MS = 5000;
 
 export function ChatThread({ appointmentId, basePath }: { appointmentId: string; basePath: string }) {
   const { user } = useAuth();
@@ -42,12 +51,16 @@ export function ChatThread({ appointmentId, basePath }: { appointmentId: string;
   const [editDraft, setEditDraft] = useState("");
   const [requestingCall, setRequestingCall] = useState(false);
   const [callNotice, setCallNotice] = useState<string | null>(null);
+  const [otherTyping, setOtherTyping] = useState(false);
 
   const bottomRef = useRef<HTMLDivElement>(null);
   const hasMarkedRead = useRef(false);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const documentInputRef = useRef<HTMLInputElement>(null);
   const attachMenuRef = useRef<HTMLDivElement>(null);
+  const typingDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const typingAutoClearRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isTypingRef = useRef(false);
 
   async function load() {
     const { status, data } = await apiGet<{
@@ -115,6 +128,73 @@ export function ChatThread({ appointmentId, basePath }: { appointmentId: string;
     };
   }, [socket, conversation, router, callRoomPath]);
 
+  // Real-time message/state sync — previously this thread only found out
+  // about new messages, edits, deletes, read receipts, unlocks, or the
+  // appointment ending by waiting for the next poll (was every 5s; mobile
+  // has always gotten all of this instantly via these same socket events,
+  // which the backend already broadcasts to every platform — web just never
+  // listened). Re-uses the existing load() fetch rather than hand-rolling
+  // client-side message state mutation, so this stays low-risk.
+  useEffect(() => {
+    if (!socket || !conversation) return;
+
+    function refreshIfThisConversation(payload: { conversationId?: string }) {
+      if (payload.conversationId === conversation!._id) load();
+    }
+
+    function onAppointmentEnded(payload: { appointmentId: string }) {
+      if (payload.appointmentId === appointmentId) load();
+    }
+
+    function onTyping(payload: { conversationId: string; isTyping: boolean; senderRole: string }) {
+      if (payload.conversationId !== conversation!._id) return;
+      if (payload.senderRole === user?.role) return; // our own emit echoed back
+      setOtherTyping(payload.isTyping);
+      if (typingAutoClearRef.current) clearTimeout(typingAutoClearRef.current);
+      if (payload.isTyping) {
+        typingAutoClearRef.current = setTimeout(() => setOtherTyping(false), TYPING_AUTO_CLEAR_MS);
+      }
+    }
+
+    socket.on("new-message", refreshIfThisConversation);
+    socket.on("messages-read", refreshIfThisConversation);
+    socket.on("message-edited", refreshIfThisConversation);
+    socket.on("message-deleted", refreshIfThisConversation);
+    socket.on("conversation-unlocked", refreshIfThisConversation);
+    socket.on("appointment-ended", onAppointmentEnded);
+    socket.on("typing-indicator", onTyping);
+
+    return () => {
+      socket.off("new-message", refreshIfThisConversation);
+      socket.off("messages-read", refreshIfThisConversation);
+      socket.off("message-edited", refreshIfThisConversation);
+      socket.off("message-deleted", refreshIfThisConversation);
+      socket.off("conversation-unlocked", refreshIfThisConversation);
+      socket.off("appointment-ended", onAppointmentEnded);
+      socket.off("typing-indicator", onTyping);
+      if (typingAutoClearRef.current) clearTimeout(typingAutoClearRef.current);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [socket, conversation?._id, appointmentId, user?.role]);
+
+  // Emits our own typing status, debounced like mobile's handleTextChange:
+  // isTyping:true on the first keystroke, isTyping:false after a pause.
+  function handleDraftChange(value: string) {
+    setDraft(value);
+    if (!conversation) return;
+
+    if (value.length > 0 && !isTypingRef.current) {
+      isTypingRef.current = true;
+      apiPost(`/api/chat/conversation/${conversation._id}/typing`, { isTyping: true });
+    }
+
+    if (typingDebounceRef.current) clearTimeout(typingDebounceRef.current);
+    typingDebounceRef.current = setTimeout(() => {
+      isTypingRef.current = false;
+      apiPost(`/api/chat/conversation/${conversation._id}/typing`, { isTyping: false });
+    }, TYPING_DEBOUNCE_MS);
+  }
+
   async function handleStartCall() {
     if (!conversation) return;
     setRequestingCall(true);
@@ -156,6 +236,12 @@ export function ChatThread({ appointmentId, basePath }: { appointmentId: string;
     if (!content || !conversation) return;
     setSending(true);
     setSendError(null);
+
+    if (typingDebounceRef.current) clearTimeout(typingDebounceRef.current);
+    if (isTypingRef.current) {
+      isTypingRef.current = false;
+      apiPost(`/api/chat/conversation/${conversation._id}/typing`, { isTyping: false });
+    }
     const { data } = await apiPost<{ success: boolean; message?: string }>(
       `/api/chat/conversation/${conversation._id}/messages`,
       { content }
@@ -437,6 +523,11 @@ export function ChatThread({ appointmentId, basePath }: { appointmentId: string;
               </div>
             );
           })}
+          {otherTyping && (
+            <p className="text-xs italic text-muted">
+              {user?.role === "Doctor" ? "Patient" : "Doctor"} is typing…
+            </p>
+          )}
           <div ref={bottomRef} />
         </div>
       </div>
@@ -479,7 +570,7 @@ export function ChatThread({ appointmentId, basePath }: { appointmentId: string;
 
             <input
               value={draft}
-              onChange={(e) => setDraft(e.target.value)}
+              onChange={(e) => handleDraftChange(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === "Enter" && !e.shiftKey) {
                   e.preventDefault();
