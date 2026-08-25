@@ -25,6 +25,27 @@ function playTonePattern(
 
   const ctx: AudioContext = new AudioCtx();
   ctx.resume().catch(() => {});
+
+  // The context is often created deep inside an async chain (well after the
+  // click that started the call), which several browsers' autoplay policy
+  // silently refuses to resume — no error, it just never plays. If it's
+  // still suspended after the immediate attempt, retry on the next tap
+  // anywhere on the page (the mic/camera buttons, the page itself) rather
+  // than staying silently dead for the rest of the call.
+  if (ctx.state !== "running") {
+    const retryResume = () => {
+      ctx.resume().catch(() => {});
+    };
+    document.addEventListener("pointerdown", retryResume, { once: true });
+    document.addEventListener("keydown", retryResume, { once: true });
+    ctx.addEventListener("statechange", () => {
+      if (ctx.state === "running") {
+        document.removeEventListener("pointerdown", retryResume);
+        document.removeEventListener("keydown", retryResume);
+      }
+    });
+  }
+
   const oscillators = frequencies.map((freq) => {
     const osc = ctx.createOscillator();
     osc.type = "sine";

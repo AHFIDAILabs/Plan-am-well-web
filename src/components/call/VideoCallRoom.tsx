@@ -293,7 +293,7 @@ export function VideoCallRoom({ appointmentId, backHref }: { appointmentId: stri
         <Button
           onClick={endCall}
           aria-label="End call"
-          className="!h-14 !w-14 !rounded-full !px-0 bg-red-600 text-white hover:bg-red-700"
+          className="h-14! w-14! rounded-full! px-0! bg-red-600 text-white hover:bg-red-700"
         >
           <Icon path={ICONS.close} className="h-6 w-6" />
         </Button>
