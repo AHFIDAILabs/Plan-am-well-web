@@ -13,6 +13,7 @@ import { Icon, ICONS } from "@/components/ui/Icon";
 import { UserProfile, userImageUrl } from "@/lib/types";
 import { GuestGate } from "@/components/auth/GuestGate";
 import { DeleteAccountSection } from "@/components/account/DeleteAccountSection";
+import { AnalyticsConsentRow } from "@/components/account/AnalyticsConsentRow";
 
 function SectionHeader({ icon, title, subtitle }: { icon: keyof typeof ICONS; title: string; subtitle: string }) {
   return (
@@ -288,6 +289,11 @@ function ProfilePageContent() {
           <div className="mt-4 flex flex-col gap-1 border-t border-border pt-2">
             <p className="px-4 pt-3 text-xs font-semibold uppercase tracking-wide text-muted">Security</p>
             <BiometricLockRow />
+          </div>
+
+          <div className="flex flex-col gap-1 border-t border-border pt-2">
+            <p className="px-4 pt-3 text-xs font-semibold uppercase tracking-wide text-muted">Data</p>
+            <AnalyticsConsentRow />
           </div>
         </Card>
 

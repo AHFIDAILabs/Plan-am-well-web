@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { generateRegistrationOptions } from "@simplewebauthn/server";
 import { getSession } from "@/lib/session";
 import { verifyCsrf, csrfRejection } from "@/lib/csrf";
+import { getRpID } from "@/lib/webauthn";
 
 export async function POST(req: NextRequest) {
   if (!verifyCsrf(req)) {
@@ -13,7 +14,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: false, message: "Not authenticated" }, { status: 401 });
   }
 
-  const rpID = new URL(req.url).hostname;
+  const rpID = getRpID(req);
 
   const options = await generateRegistrationOptions({
     rpName: "PlanAmWell",

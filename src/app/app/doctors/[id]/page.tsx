@@ -12,6 +12,7 @@ import { ICONS } from "@/components/ui/Icon";
 import { Star, StarRow } from "@/components/ui/StarRating";
 import { GuestGate } from "@/components/auth/GuestGate";
 import { useAuth } from "@/context/AuthContext";
+import { logEvent } from "@/lib/analytics";
 import {
   Doctor,
   DoctorAvailability,
@@ -305,6 +306,7 @@ export default function DoctorDetailPage() {
       // already landed as "pending" and the doctor's already been notified.
       // The appointment detail page is the real confirmation; no separate
       // success screen needed.
+      logEvent("appointment_booked", { doctor_specialization: doctor?.specialization ?? "unknown" });
       router.push(`/app/appointments/${data.data._id}`);
       return;
     }

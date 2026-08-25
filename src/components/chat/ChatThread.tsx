@@ -19,6 +19,7 @@ function MoreDots() {
 import { useAuth } from "@/context/AuthContext";
 import { useSocket } from "@/context/SocketContext";
 import { Conversation, ChatMessage, doctorFullName } from "@/lib/types";
+import { logEvent } from "@/lib/analytics";
 
 const POLL_INTERVAL_MS = 5000;
 
@@ -162,6 +163,7 @@ export function ChatThread({ appointmentId, basePath }: { appointmentId: string;
     setSending(false);
     if (data.success) {
       setDraft("");
+      logEvent("chat_message_sent", { message_type: "text" });
       load();
     } else {
       setSendError(data.message ?? "Could not send your message.");
@@ -194,6 +196,7 @@ export function ChatThread({ appointmentId, basePath }: { appointmentId: string;
     );
     setUploading(false);
     if (sendData.success) {
+      logEvent("chat_message_sent", { message_type: mediaType });
       load();
     } else {
       setSendError(sendData.message ?? "Could not send your file.");

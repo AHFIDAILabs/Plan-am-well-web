@@ -54,14 +54,16 @@ export default function DoctorsListPage() {
             onChange={(e) => setQuery(e.target.value)}
           />
         </div>
-        <Select value={specialty} onChange={(e) => setSpecialty(e.target.value)} className="sm:w-56">
-          <option value="all">All specialties</option>
-          {specialties.map((s) => (
-            <option key={s} value={s}>
-              {s}
-            </option>
-          ))}
-        </Select>
+        <div className="sm:w-56">
+          <Select value={specialty} onChange={(e) => setSpecialty(e.target.value)}>
+            <option value="all">All specialties</option>
+            {specialties.map((s) => (
+              <option key={s} value={s}>
+                {s}
+              </option>
+            ))}
+          </Select>
+        </div>
       </div>
 
       {error && <p className="mt-6 text-sm text-red-600">{error}</p>}

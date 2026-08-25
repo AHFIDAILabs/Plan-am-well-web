@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { verifyAuthenticationResponse } from "@simplewebauthn/server";
 import { getSession } from "@/lib/session";
 import { verifyCsrf, csrfRejection } from "@/lib/csrf";
+import { getRpID } from "@/lib/webauthn";
 
 export async function POST(req: NextRequest) {
   if (!verifyCsrf(req)) {
@@ -20,8 +21,8 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json();
-  const rpID = new URL(req.url).hostname;
-  const origin = req.headers.get("origin") ?? new URL(req.url).origin;
+  const rpID = getRpID(req);
+  const origin = req.headers.get("origin") ?? `https://${rpID}`;
 
   try {
     const verification = await verifyAuthenticationResponse({

@@ -3,6 +3,7 @@
 import { createContext, useContext, useEffect, useState, useCallback, ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { apiGet, apiPost, apiDelete } from "@/lib/api";
+import { logEvent, setAnalyticsUser, clearAnalyticsUser } from "@/lib/analytics";
 
 export interface SessionUser {
   id: string;
@@ -68,6 +69,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (data.success && data.user) {
       setUser(data.user);
       setIsAnonymous(false);
+      setAnalyticsUser(data.user.id, data.user.role === "Doctor" ? "Doctor" : "User");
+      logEvent("login", { role: data.user.role });
       router.push(data.user.role === "Doctor" ? "/provider" : "/app");
       return { success: true };
     }
@@ -82,6 +85,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (data.success && data.user) {
       setUser(data.user);
       setIsAnonymous(false);
+      setAnalyticsUser(data.user.id, "User");
+      logEvent("sign_up", { role: "User" });
       router.push("/app");
       return { success: true };
     }
@@ -107,6 +112,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await apiPost("/api/auth/logout");
     setUser(null);
     setIsAnonymous(false);
+    clearAnalyticsUser();
     router.push("/");
   }, [router]);
 
@@ -125,6 +131,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (data.success) {
       setUser(null);
       setIsAnonymous(false);
+      clearAnalyticsUser();
       router.push("/");
     }
     return { success: data.success, message: data.message };

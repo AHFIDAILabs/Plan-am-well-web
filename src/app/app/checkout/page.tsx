@@ -8,6 +8,7 @@ import { Select } from "@/components/ui/Select";
 import { Button } from "@/components/ui/Button";
 import { Cart, DeliveryZoneState, UserProfile } from "@/lib/types";
 import { GuestGate } from "@/components/auth/GuestGate";
+import { logEvent } from "@/lib/analytics";
 
 export default function CheckoutPage() {
   return (
@@ -112,6 +113,7 @@ function CheckoutPageContent() {
     setSubmitting(false);
 
     if (confirmData.success && confirmData.checkoutUrl) {
+      logEvent("order_placed", { item_count: cart?.items.length ?? 0 });
       window.location.href = confirmData.checkoutUrl;
     } else {
       setError(confirmData.message ?? "Could not start payment. Your order was saved — check Order History.");

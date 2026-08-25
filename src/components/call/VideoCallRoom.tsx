@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSocket } from "@/context/SocketContext";
 import { apiGet, apiPost } from "@/lib/api";
+import { logEvent } from "@/lib/analytics";
 import { Button } from "@/components/ui/Button";
 import { Icon, ICONS } from "@/components/ui/Icon";
 
@@ -29,11 +30,30 @@ export function VideoCallRoom({ appointmentId, backHref }: { appointmentId: stri
   const isInitiatorRef = useRef(false);
   const readyIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const startedRef = useRef(false);
+  const connectedAtRef = useRef<number | null>(null);
+  const callStartedLoggedRef = useRef(false);
+  const callEndedLoggedRef = useRef(false);
 
   const [state, setState] = useState<CallState>("starting");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [micOn, setMicOn] = useState(true);
   const [cameraOn, setCameraOn] = useState(true);
+
+  const markConnected = useCallback(() => {
+    setState("connected");
+    if (!callStartedLoggedRef.current) {
+      callStartedLoggedRef.current = true;
+      connectedAtRef.current = Date.now();
+      logEvent("call_started", { call_type: "video", is_initiator: isInitiatorRef.current });
+    }
+  }, []);
+
+  const logCallEnded = useCallback(() => {
+    if (callEndedLoggedRef.current || !connectedAtRef.current) return;
+    callEndedLoggedRef.current = true;
+    const durationSeconds = Math.round((Date.now() - connectedAtRef.current) / 1000);
+    logEvent("call_ended", { call_type: "video", duration_seconds: durationSeconds });
+  }, []);
 
   useEffect(() => {
     if (!socket || !connected || startedRef.current) return;
@@ -92,7 +112,7 @@ export function VideoCallRoom({ appointmentId, backHref }: { appointmentId: stri
 
         pc.ontrack = (event) => {
           if (remoteVideoRef.current) remoteVideoRef.current.srcObject = event.streams[0];
-          setState("connected");
+          markConnected();
         };
 
         pc.onicecandidate = (event) => {
@@ -102,7 +122,7 @@ export function VideoCallRoom({ appointmentId, backHref }: { appointmentId: stri
         };
 
         pc.onconnectionstatechange = () => {
-          if (pc.connectionState === "connected") setState("connected");
+          if (pc.connectionState === "connected") markConnected();
           if (pc.connectionState === "failed") {
             setErrorMessage("The connection failed. Check your network and try again.");
             setState("error");
@@ -158,12 +178,14 @@ export function VideoCallRoom({ appointmentId, backHref }: { appointmentId: stri
 
         socket!.on("call-ended", (payload: { appointmentId: string }) => {
           if (payload.appointmentId !== appointmentId) return;
+          logCallEnded();
           setState("ended");
           cleanup();
         });
 
         socket!.on("call-declined", (payload: { appointmentId: string }) => {
           if (payload.appointmentId !== appointmentId) return;
+          logCallEnded();
           setErrorMessage("The call was declined.");
           setState("ended");
           cleanup();
@@ -187,12 +209,14 @@ export function VideoCallRoom({ appointmentId, backHref }: { appointmentId: stri
 
     return () => {
       cancelled = true;
+      logCallEnded();
       cleanup();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [socket, connected, appointmentId]);
 
   async function endCall() {
+    logCallEnded();
     await apiPost("/api/video/end-call", { appointmentId });
     setState("ended");
     router.push(backHref);

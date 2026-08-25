@@ -6,6 +6,7 @@ import Link from "next/link";
 import { apiGet } from "@/lib/api";
 import { Button } from "@/components/ui/Button";
 import { GuestGate } from "@/components/auth/GuestGate";
+import { logEvent } from "@/lib/analytics";
 
 type ResultState = "checking" | "paid" | "failed";
 
@@ -35,6 +36,7 @@ function PaymentCallbackContent() {
         );
         if (cancelled) return;
         if (data.success && data.data?.paymentStatus === "paid") {
+          logEvent("appointment_booked", {});
           setResult("paid");
           return;
         }

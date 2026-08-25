@@ -11,6 +11,7 @@ import { StarRow } from "@/components/ui/StarRating";
 import { Icon, ICONS } from "@/components/ui/Icon";
 import { Doctor, DoctorAvailability, WEEKDAYS, Weekday, doctorImageUrl, doctorFullName } from "@/lib/types";
 import { DeleteAccountSection } from "@/components/account/DeleteAccountSection";
+import { AnalyticsConsentRow } from "@/components/account/AnalyticsConsentRow";
 
 const SLOT_DURATION_OPTIONS = [15, 30, 45, 60];
 
@@ -408,6 +409,11 @@ export default function DoctorProfilePage() {
           Save availability
         </Button>
       </div>
+
+      <Card className="mt-6 max-w-2xl">
+        <p className="mb-1 px-4 pt-1 text-xs font-semibold uppercase tracking-wide text-muted">Data</p>
+        <AnalyticsConsentRow />
+      </Card>
 
       <DeleteAccountSection />
     </div>

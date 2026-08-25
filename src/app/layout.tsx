@@ -3,6 +3,7 @@ import { Inter } from "next/font/google";
 import { AuthProvider } from "@/context/AuthContext";
 import { SocketProvider } from "@/context/SocketContext";
 import { NotificationProvider } from "@/context/NotificationContext";
+import { ScreenViewTracker } from "@/components/analytics/ScreenViewTracker";
 import "./globals.css";
 
 const inter = Inter({
@@ -26,7 +27,10 @@ export default function RootLayout({
       <body className={`${inter.variable} font-sans antialiased`}>
         <AuthProvider>
           <SocketProvider>
-            <NotificationProvider>{children}</NotificationProvider>
+            <NotificationProvider>
+              <ScreenViewTracker />
+              {children}
+            </NotificationProvider>
           </SocketProvider>
         </AuthProvider>
       </body>
