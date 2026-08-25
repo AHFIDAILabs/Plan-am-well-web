@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useSocket } from "@/context/SocketContext";
 import { apiGet, apiPost } from "@/lib/api";
 import { logEvent } from "@/lib/analytics";
+import { startRingback, stopRingback } from "@/lib/ringtone";
 import { Button } from "@/components/ui/Button";
 import { Icon, ICONS } from "@/components/ui/Icon";
 
@@ -38,6 +39,18 @@ export function VideoCallRoom({ appointmentId, backHref }: { appointmentId: stri
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [micOn, setMicOn] = useState(true);
   const [cameraOn, setCameraOn] = useState(true);
+
+  // Ring-out for the caller — previously the "Ringing…" state was purely
+  // visual with no actual tone playing, so a doctor calling out had no
+  // audible confirmation the call was actually going out.
+  useEffect(() => {
+    if (state === "ringing") {
+      startRingback();
+    } else {
+      stopRingback();
+    }
+    return () => stopRingback();
+  }, [state]);
 
   const markConnected = useCallback(() => {
     setState("connected");

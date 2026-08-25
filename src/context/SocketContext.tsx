@@ -7,6 +7,7 @@ import { apiGet, apiPost } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
+import { startIncomingRing, stopIncomingRing } from "@/lib/ringtone";
 
 // Socket tokens are minted with a 10 min expiry (see backend authController's
 // mintSocketToken) — refresh a couple minutes early so the connection never
@@ -85,6 +86,18 @@ export function SocketProvider({ children }: { children: ReactNode }) {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [canCall, user?.id]);
+
+  // The incoming-call modal was previously silent — nothing distinguished it
+  // from any other modal appearing, so a doctor/patient not looking at their
+  // screen at that exact moment would miss the call entirely.
+  useEffect(() => {
+    if (incomingCall) {
+      startIncomingRing();
+    } else {
+      stopIncomingRing();
+    }
+    return () => stopIncomingRing();
+  }, [incomingCall]);
 
   function acceptCall() {
     if (!incomingCall) return;

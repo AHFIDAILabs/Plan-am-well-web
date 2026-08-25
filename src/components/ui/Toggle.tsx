@@ -19,8 +19,8 @@ export function Toggle({ checked, onChange, disabled, ...props }: ToggleProps) {
       {...props}
     >
       <span
-        className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow-sm transition-transform ${
-          checked ? "translate-x-[22px]" : "translate-x-0.5"
+        className={`absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow-sm transition-transform ${
+          checked ? "translate-x-5" : "translate-x-0"
         }`}
       />
     </button>
