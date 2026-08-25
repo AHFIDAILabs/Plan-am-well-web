@@ -24,17 +24,25 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   }
 
   const { id } = await params;
-  const body = await req.json();
+  const incoming = await req.formData();
 
-  const payload: Record<string, unknown> = {};
+  const outgoing = new FormData();
   for (const field of ALLOWED_FIELDS) {
-    if (body[field] !== undefined) payload[field] = body[field];
+    const value = incoming.get(field);
+    if (typeof value === "string") outgoing.append(field, value);
+  }
+
+  // Optional — only present when the doctor picked a new photo. Backend's
+  // multer field name is "doctorImage", matching updateDoctor's upload.single().
+  const imageFile = incoming.get("doctorImage");
+  if (imageFile instanceof File && imageFile.size > 0) {
+    outgoing.append("doctorImage", imageFile);
   }
 
   return withAuthErrorHandling(async () => {
     const backendRes = await backendFetch(req, `/doctors/${encodeURIComponent(id)}`, {
       method: "PUT",
-      body: JSON.stringify(payload),
+      body: outgoing,
     });
     const data = await backendRes.json();
     return NextResponse.json(data, { status: backendRes.status });

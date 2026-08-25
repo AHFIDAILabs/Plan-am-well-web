@@ -7,9 +7,23 @@ import { apiGet, apiPost } from "@/lib/api";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Textarea } from "@/components/ui/Textarea";
+import { Modal } from "@/components/ui/Modal";
+import { ICONS } from "@/components/ui/Icon";
+import { Star, StarRow } from "@/components/ui/StarRating";
 import { GuestGate } from "@/components/auth/GuestGate";
 import { useAuth } from "@/context/AuthContext";
-import { Doctor, DoctorAvailability, FamilyMember, WEEKDAYS, WEEKDAY_BY_JS_DAY, doctorFullName, doctorImageUrl } from "@/lib/types";
+import {
+  Doctor,
+  DoctorAvailability,
+  FamilyMember,
+  Review,
+  WEEKDAYS,
+  WEEKDAY_BY_JS_DAY,
+  doctorFullName,
+  doctorImageUrl,
+  formatKobo,
+} from "@/lib/types";
+
 
 interface BookedSlot {
   scheduledAt: string;
@@ -100,7 +114,82 @@ export default function DoctorDetailPage() {
   const [booking, setBooking] = useState(false);
   const [bookError, setBookError] = useState<string | null>(null);
   const [missingFields, setMissingFields] = useState<string[] | null>(null);
-  const [bookSuccess, setBookSuccess] = useState(false);
+  const [feeLabel, setFeeLabel] = useState("...");
+  const [paymentEnabled, setPaymentEnabled] = useState(false);
+
+  useEffect(() => {
+    apiGet<{
+      success: boolean;
+      data?: { consultationFeeKobo: number; currency: string; paymentEnabled: boolean };
+    }>("/api/platform-settings").then(({ data }) => {
+      if (data.success && data.data) {
+        setFeeLabel(formatKobo(data.data.consultationFeeKobo, data.data.currency));
+        setPaymentEnabled(data.data.paymentEnabled);
+      } else {
+        setFeeLabel("—");
+      }
+    });
+  }, []);
+
+  const [reviews, setReviews] = useState<Review[] | null>(null);
+  const [reviewsTotal, setReviewsTotal] = useState(0);
+  const [showAllReviews, setShowAllReviews] = useState(false);
+  const [canReview, setCanReview] = useState(false);
+  const [showReviewModal, setShowReviewModal] = useState(false);
+  const [reviewRating, setReviewRating] = useState(5);
+  const [reviewComment, setReviewComment] = useState("");
+  const [submittingReview, setSubmittingReview] = useState(false);
+  const [reviewError, setReviewError] = useState<string | null>(null);
+
+  function loadReviews() {
+    apiGet<{ success: boolean; data?: { reviews: Review[]; total: number } }>(
+      `/api/reviews/doctor/${doctorId}?limit=10`
+    ).then(({ data }) => {
+      if (data.success && data.data) {
+        setReviews(data.data.reviews);
+        setReviewsTotal(data.data.total);
+      }
+    });
+  }
+
+  useEffect(() => {
+    loadReviews();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [doctorId]);
+
+  useEffect(() => {
+    if (isAnonymous) return;
+    apiGet<{ success: boolean; data?: { canReview: boolean } }>(`/api/reviews/can-review/${doctorId}`).then(
+      ({ data }) => {
+        if (data.success && data.data) setCanReview(data.data.canReview);
+      }
+    );
+  }, [doctorId, isAnonymous]);
+
+  async function handleSubmitReview() {
+    setSubmittingReview(true);
+    setReviewError(null);
+
+    const { data } = await apiPost<{
+      success: boolean;
+      message?: string;
+      data?: { newAvgRating: number };
+    }>("/api/reviews", { doctorId, rating: reviewRating, comment: reviewComment.trim() || undefined });
+
+    setSubmittingReview(false);
+
+    if (!data.success) {
+      setReviewError(data.message ?? "Could not submit your review.");
+      return;
+    }
+
+    setShowReviewModal(false);
+    setCanReview(false);
+    setReviewComment("");
+    setReviewRating(5);
+    loadReviews();
+    if (data.data && doctor) setDoctor({ ...doctor, ratings: data.data.newAvgRating });
+  }
 
   useEffect(() => {
     // Viewing an approved doctor's profile is guest-browsable (matches the
@@ -184,6 +273,7 @@ export default function DoctorDetailPage() {
       message?: string;
       code?: string;
       missingFields?: string[];
+      data?: { _id: string };
     }>("/api/appointments", {
       doctorId,
       scheduledAt: combineDateAndTime(selectedDay, selectedTime).toISOString(),
@@ -194,21 +284,49 @@ export default function DoctorDetailPage() {
       shareUserInfo,
     });
 
-    setBooking(false);
-
     if (status === 422 && data.code === "PROFILE_INCOMPLETE") {
+      setBooking(false);
       setMissingFields(data.missingFields ?? []);
       return;
     }
     if (status === 401) {
+      setBooking(false);
       router.push("/login");
       return;
     }
-    if (!data.success) {
+    if (!data.success || !data.data) {
+      setBooking(false);
       setBookError(data.message ?? "Could not book this appointment.");
       return;
     }
-    setBookSuccess(true);
+
+    if (!paymentEnabled) {
+      // Payment is temporarily disabled server-side — the appointment above
+      // already landed as "pending" and the doctor's already been notified.
+      // The appointment detail page is the real confirmation; no separate
+      // success screen needed.
+      router.push(`/app/appointments/${data.data._id}`);
+      return;
+    }
+
+    // Reservation made — now start payment and send the browser to the
+    // provider's hosted checkout. Full-page redirect (web's equivalent of
+    // mobile's in-app browser), returning to a dedicated callback page.
+    const redirectUrl = `${window.location.origin}/app/appointments/${data.data._id}/payment-callback`;
+    const { data: paymentData } = await apiPost<{
+      success: boolean;
+      message?: string;
+      data?: { authorizationUrl: string };
+    }>(`/api/appointments/${data.data._id}/payment/initiate`, { redirectUrl });
+
+    setBooking(false);
+
+    if (!paymentData.success || !paymentData.data) {
+      setBookError(paymentData.message ?? "Could not start payment for this appointment.");
+      return;
+    }
+
+    window.location.href = paymentData.data.authorizationUrl;
   }
 
   if (loadError) {
@@ -227,25 +345,6 @@ export default function DoctorDetailPage() {
   }
 
   const imageUrl = doctorImageUrl(doctor);
-
-  if (bookSuccess) {
-    return (
-      <div className="mx-auto max-w-lg rounded-card bg-card-bg shadow-atmospheric p-8 text-center">
-        <h1 className="text-xl font-black text-heading">Appointment requested</h1>
-        <p className="mt-2 text-sm text-muted">
-          Your request has been sent to {doctorFullName(doctor)}. You&apos;ll be notified once it&apos;s confirmed.
-        </p>
-        <div className="mt-6 flex justify-center gap-3">
-          <Link href="/app/appointments">
-            <Button>View my appointments</Button>
-          </Link>
-          <Link href="/app/doctors">
-            <Button variant="outline">Browse more doctors</Button>
-          </Link>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div>
@@ -439,6 +538,11 @@ export default function DoctorDetailPage() {
               Share my profile info (name, contact, DOB) with this doctor
             </label>
 
+            <div className="mt-4 flex items-center justify-between rounded-lg bg-accent-gray-bg px-3.5 py-2.5 text-sm">
+              <span className="text-muted">Consultation fee</span>
+              <span className="font-semibold text-heading">{feeLabel}</span>
+            </div>
+
             {bookError && <p className="mt-3 text-sm text-red-600">{bookError}</p>}
 
             <GuestGate feature="Booking an appointment">
@@ -448,12 +552,94 @@ export default function DoctorDetailPage() {
                 loading={booking}
                 onClick={handleBook}
               >
-                {selectedTime ? `Request ${selectedTime} appointment` : "Select a time to continue"}
+                {selectedTime
+                  ? paymentEnabled
+                    ? `Continue to payment · ${feeLabel}`
+                    : "Request Appointment"
+                  : "Select a time to continue"}
               </Button>
             </GuestGate>
           </div>
         </div>
       </div>
+
+      <div className="mt-6 rounded-card bg-card-bg shadow-atmospheric p-6">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="font-bold text-heading">Reviews</h2>
+            {typeof doctor.ratings === "number" && doctor.ratings > 0 ? (
+              <div className="mt-1 flex items-center gap-2">
+                <StarRow rating={doctor.ratings} size="h-4 w-4" />
+                <span className="text-sm font-semibold text-heading">{doctor.ratings.toFixed(1)}</span>
+                <span className="text-sm text-muted">
+                  ({reviewsTotal} review{reviewsTotal === 1 ? "" : "s"})
+                </span>
+              </div>
+            ) : (
+              <p className="mt-1 text-sm text-muted">No reviews yet.</p>
+            )}
+          </div>
+          {canReview && (
+            <Button variant="outline" onClick={() => setShowReviewModal(true)}>
+              Write a review
+            </Button>
+          )}
+        </div>
+
+        {reviews === null && <p className="mt-4 text-sm text-muted">Loading reviews...</p>}
+        {reviews && reviews.length === 0 && (
+          <p className="mt-4 text-sm text-muted">Be the first to review {doctorFullName(doctor)}.</p>
+        )}
+
+        {reviews && reviews.length > 0 && (
+          <div className="mt-4 flex flex-col gap-4">
+            {(showAllReviews ? reviews : reviews.slice(0, 3)).map((r) => (
+              <div key={r._id} className="border-t border-border pt-4 first:border-t-0 first:pt-0">
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-semibold text-heading">{r.name}</p>
+                  <p className="text-xs text-muted">{new Date(r.createdAt).toLocaleDateString()}</p>
+                </div>
+                <StarRow rating={r.rating} size="h-3.5 w-3.5" />
+                {r.comment && <p className="mt-1.5 text-sm text-body">{r.comment}</p>}
+              </div>
+            ))}
+            {reviews.length > 3 && (
+              <button
+                onClick={() => setShowAllReviews((v) => !v)}
+                className="w-fit text-sm font-semibold text-primary hover:underline"
+              >
+                {showAllReviews ? "Show less" : `Show all ${reviews.length} reviews`}
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+
+      <Modal open={showReviewModal} onClose={() => setShowReviewModal(false)} title={`Review ${doctorFullName(doctor)}`}>
+        <div className="flex flex-col gap-4">
+          <div>
+            <p className="mb-2 text-xs font-semibold text-heading">Your rating</p>
+            <div className="flex gap-1">
+              {[1, 2, 3, 4, 5].map((n) => (
+                <button key={n} type="button" onClick={() => setReviewRating(n)} aria-label={`${n} star${n === 1 ? "" : "s"}`}>
+                  <Star filled={n <= reviewRating} className="h-7 w-7 text-secondary" />
+                </button>
+              ))}
+            </div>
+          </div>
+          <Textarea
+            label="Comment (optional)"
+            value={reviewComment}
+            onChange={(e) => setReviewComment(e.target.value)}
+            rows={3}
+            placeholder="Share how your consultation went"
+          />
+          {reviewError && <p className="text-sm text-red-600">{reviewError}</p>}
+          <Button loading={submittingReview} onClick={handleSubmitReview} className="w-full">
+            Submit review
+          </Button>
+        </div>
+      </Modal>
     </div>
   );
 }

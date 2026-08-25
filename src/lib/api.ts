@@ -39,16 +39,28 @@ export function apiPost<T = unknown>(path: string, body?: unknown) {
 // JSON.stringifies its body, which would corrupt a file upload's multipart
 // boundary, so this is a separate path that leaves Content-Type for the
 // browser to set from the FormData instance itself.
-export async function apiPostForm<T = unknown>(path: string, formData: FormData): Promise<{ status: number; data: T }> {
+async function csrfWriteForm<T = unknown>(
+  method: "POST" | "PUT",
+  path: string,
+  formData: FormData
+): Promise<{ status: number; data: T }> {
   const csrfToken = readCsrfCookie();
   const res = await fetch(path, {
-    method: "POST",
+    method,
     headers: csrfToken ? { [CSRF_HEADER_NAME]: csrfToken } : undefined,
     body: formData,
     credentials: "include",
   });
   const data = (await res.json().catch(() => ({}))) as T;
   return { status: res.status, data };
+}
+
+export function apiPostForm<T = unknown>(path: string, formData: FormData) {
+  return csrfWriteForm<T>("POST", path, formData);
+}
+
+export function apiPutForm<T = unknown>(path: string, formData: FormData) {
+  return csrfWriteForm<T>("PUT", path, formData);
 }
 
 export function apiPut<T = unknown>(path: string, body?: unknown) {

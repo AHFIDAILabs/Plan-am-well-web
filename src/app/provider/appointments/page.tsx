@@ -20,15 +20,42 @@ const STATUS_STYLES: Record<string, string> = {
   rescheduled: "bg-accent-amber-bg text-accent-amber-fg",
 };
 
+const CALL_ELIGIBLE_STATUSES = new Set(["confirmed", "confirmed-upcoming", "about-to-start", "in-progress"]);
+
 export default function DoctorAppointmentsPage() {
   const [appointments, setAppointments] = useState<DoctorAppointment[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [actioningId, setActioningId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [joinableCalls, setJoinableCalls] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     load();
   }, []);
+
+  useEffect(() => {
+    if (!appointments) return;
+    let cancelled = false;
+
+    async function pollCallStatuses() {
+      const candidates = appointments!.filter((a) => CALL_ELIGIBLE_STATUSES.has(a.status));
+      const results = await Promise.all(
+        candidates.map((a) =>
+          apiGet<{ success: boolean; data?: { canJoin: boolean; canRejoin: boolean } }>(
+            `/api/video/call-status/${a._id}`
+          ).then(({ data }) => [a._id, !!(data.success && data.data && (data.data.canJoin || data.data.canRejoin))] as const)
+        )
+      );
+      if (!cancelled) setJoinableCalls(Object.fromEntries(results));
+    }
+
+    pollCallStatuses();
+    const interval = setInterval(pollCallStatuses, 20000);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [appointments]);
 
   function load() {
     apiGet<{ success: boolean; data?: DoctorAppointment[]; message?: string }>("/api/appointments/doctor").then(
@@ -136,6 +163,14 @@ export default function DoctorAppointmentsPage() {
                     >
                       {appt.status.replace(/-/g, " ")}
                     </span>
+                    {joinableCalls[appt._id] && (
+                      <Link
+                        href={`/provider/appointments/${appt._id}/call`}
+                        className="text-xs font-semibold text-green-700"
+                      >
+                        Join Call
+                      </Link>
+                    )}
                     <Link href={`/provider/messages/${appt._id}`} className="text-xs font-semibold text-primary">
                       Message
                     </Link>

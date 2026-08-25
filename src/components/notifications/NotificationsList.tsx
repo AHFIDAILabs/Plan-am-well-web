@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
-import { apiGet, apiPut, apiDelete } from "@/lib/api";
 import { Button } from "@/components/ui/Button";
 import { AppNotification } from "@/lib/types";
+import { useNotifications } from "@/context/NotificationContext";
 
 const TYPE_ICON: Record<string, string> = {
   appointment: "📅",
@@ -40,39 +40,21 @@ export function NotificationsList({
   appointmentDetailBase?: string;
   messagesPath: string;
 }) {
-  const [notifications, setNotifications] = useState<AppNotification[] | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const { notifications, markAsRead, markAllAsRead, deleteNotification } = useNotifications();
   const [markingAll, setMarkingAll] = useState(false);
 
-  function load() {
-    apiGet<{ success: boolean; data?: AppNotification[]; message?: string }>("/api/notifications").then(
-      ({ data }) => {
-        if (data.success && data.data) {
-          setNotifications(data.data);
-        } else {
-          setError(data.message ?? "Could not load notifications.");
-        }
-      }
-    );
-  }
-
-  useEffect(load, []);
-
   async function handleMarkRead(id: string) {
-    await apiPut(`/api/notifications/${id}/read`);
-    setNotifications((prev) => prev?.map((n) => (n._id === id ? { ...n, isRead: true } : n)) ?? null);
+    await markAsRead(id);
   }
 
   async function handleMarkAllRead() {
     setMarkingAll(true);
-    await apiPut("/api/notifications/read-all");
+    await markAllAsRead();
     setMarkingAll(false);
-    setNotifications((prev) => prev?.map((n) => ({ ...n, isRead: true })) ?? null);
   }
 
   async function handleDelete(id: string) {
-    await apiDelete(`/api/notifications/${id}`);
-    setNotifications((prev) => prev?.filter((n) => n._id !== id) ?? null);
+    await deleteNotification(id);
   }
 
   const hasUnread = notifications?.some((n) => !n.isRead) ?? false;
@@ -91,8 +73,7 @@ export function NotificationsList({
         )}
       </div>
 
-      {error && <p className="mt-4 text-sm text-red-600">{error}</p>}
-      {!notifications && !error && <p className="mt-6 text-sm text-muted">Loading...</p>}
+      {!notifications && <p className="mt-6 text-sm text-muted">Loading...</p>}
       {notifications && notifications.length === 0 && (
         <div className="mt-6 rounded-card bg-card-bg shadow-atmospheric p-6 text-center">
           <p className="text-sm text-muted">No notifications yet.</p>

@@ -27,6 +27,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ con
   const { conversationId } = await params;
   const body = await req.json();
   const content = typeof body.content === "string" ? body.content.trim() : "";
+  const messageType = typeof body.messageType === "string" ? body.messageType : "text";
+  const mediaUrl = typeof body.mediaUrl === "string" ? body.mediaUrl : undefined;
 
   if (!content) {
     return NextResponse.json({ success: false, message: "content is required" }, { status: 400 });
@@ -35,7 +37,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ con
   return withAuthErrorHandling(async () => {
     const backendRes = await backendFetch(req, `/chat/conversation/${encodeURIComponent(conversationId)}/message`, {
       method: "POST",
-      body: JSON.stringify({ content, messageType: "text" }),
+      body: JSON.stringify({ content, messageType, mediaUrl }),
     });
     const data = await backendRes.json();
     return NextResponse.json(data, { status: backendRes.status });

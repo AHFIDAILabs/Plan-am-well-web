@@ -50,7 +50,24 @@ export function doctorFullName(doctor: Pick<Doctor, "firstName" | "lastName">): 
   return `Dr. ${doctor.firstName} ${doctor.lastName}`;
 }
 
+export function formatKobo(amountKobo: number, currency: string = "NGN"): string {
+  const symbol = currency === "NGN" ? "₦" : `${currency} `;
+  return `${symbol}${(amountKobo / 100).toLocaleString()}`;
+}
+
+export interface Review {
+  _id: string;
+  doctorId: string;
+  userId: string;
+  appointmentId?: string;
+  name: string;
+  rating: number;
+  comment: string;
+  createdAt: string;
+}
+
 export type AppointmentStatus =
+  | "awaiting-payment"
   | "pending"
   | "confirmed"
   | "cancelled"
@@ -72,6 +89,9 @@ export interface Appointment {
   status: AppointmentStatus;
   reason?: string;
   notes?: string;
+  paymentStatus?: "pending" | "paid" | "failed";
+  amountKobo?: number;
+  currency?: string;
 }
 
 export interface ChatMessage {
@@ -117,6 +137,15 @@ export interface Conversation {
   lastMessage?: ChatMessage;
   unreadCount: { user: number; doctor: number };
   isActive: boolean;
+  activeVideoRequest?: {
+    _id: string;
+    requestedBy: string;
+    requestedByType: "User" | "Doctor";
+    status: "pending" | "accepted" | "declined" | "expired" | "cancelled";
+    callType: "audio" | "video";
+    requestedAt: string;
+    expiresAt: string;
+  };
 }
 
 export interface Clinic {
@@ -467,4 +496,5 @@ export interface UserProfile {
   state?: string;
   lga?: string;
   pseudonym?: string;
+  userImage?: { imageUrl: string } | string | null;
 }

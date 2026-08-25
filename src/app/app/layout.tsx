@@ -7,6 +7,7 @@ const PATIENT_NAV: NavItem[] = [
   { href: "/app/appointments", label: "My Appointments", icon: "calendar" },
   { href: "/app/messages", label: "Messages & Calls", icon: "chat" },
   { href: "/app/pharmacy", label: "Order Products", icon: "pill" },
+  { href: "/app/partners", label: "Our Partners", icon: "truck" },
   { href: "/app/clinics", label: "Find Services", icon: "pin" },
   { href: "/app/articles", label: "Health Articles", icon: "article" },
   { href: "/app/community", label: "Community Hub", icon: "people" },

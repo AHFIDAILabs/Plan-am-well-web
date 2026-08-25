@@ -26,6 +26,7 @@ function AppointmentDetailPageContent() {
   const [error, setError] = useState<string | null>(null);
   const [cancelling, setCancelling] = useState(false);
   const [cancelError, setCancelError] = useState<string | null>(null);
+  const [canJoinCall, setCanJoinCall] = useState(false);
 
   useEffect(() => {
     apiGet<{ success: boolean; data?: Appointment; message?: string }>(`/api/appointments/${params.id}`).then(
@@ -37,6 +38,24 @@ function AppointmentDetailPageContent() {
         }
       }
     );
+  }, [params.id]);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function pollCallStatus() {
+      const { data } = await apiGet<{ success: boolean; data?: { canJoin: boolean; canRejoin: boolean } }>(
+        `/api/video/call-status/${params.id}`
+      );
+      if (!cancelled && data.success && data.data) {
+        setCanJoinCall(data.data.canJoin || data.data.canRejoin);
+      }
+    }
+    pollCallStatus();
+    const interval = setInterval(pollCallStatus, 20000);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
   }, [params.id]);
 
   async function handleCancel() {
@@ -139,8 +158,13 @@ function AppointmentDetailPageContent() {
         {cancelError && <p className="mt-4 text-sm text-red-600">{cancelError}</p>}
 
         <div className="mt-6 flex flex-wrap gap-3">
+          {canJoinCall && (
+            <Link href={`/app/appointments/${appointment._id}/call`}>
+              <Button className="bg-green-600 text-white hover:bg-green-700">Join Call</Button>
+            </Link>
+          )}
           <Link href={`/app/messages/${appointment._id}`}>
-            <Button>Message {doctorFullName(appointment.doctorId)}</Button>
+            <Button variant={canJoinCall ? "outline" : "primary"}>Message {doctorFullName(appointment.doctorId)}</Button>
           </Link>
           {canCancel && (
             <Button variant="outline" loading={cancelling} onClick={handleCancel}>

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { apiGet } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
+import { useNotifications } from "@/context/NotificationContext";
 import { QuickExitButton } from "@/components/safety/QuickExitButton";
 import { Icon, ICONS } from "@/components/ui/Icon";
 import { Doctor, Product, Article, Clinic, doctorFullName, doctorImageUrl } from "@/lib/types";
@@ -182,14 +183,7 @@ export function TopBar({
   profileHref: string;
 }) {
   const { user, isAnonymous } = useAuth();
-  const [unreadCount, setUnreadCount] = useState(0);
-
-  useEffect(() => {
-    if (isAnonymous) return;
-    apiGet<{ success: boolean; data?: { count: number } }>("/api/notifications/unread-count").then(({ data }) => {
-      if (data.success && data.data) setUnreadCount(data.data.count);
-    });
-  }, [isAnonymous]);
+  const { unreadCount } = useNotifications();
 
   return (
     <header className="sticky top-0 z-30 flex h-16 shrink-0 items-center gap-4 border-b border-border bg-card-bg px-4 md:px-6">

@@ -73,6 +73,23 @@ export function MarketingFooter() {
               </Link>
             </nav>
           </div>
+          <div>
+            <p className="text-xs font-bold uppercase tracking-wide text-heading">Company</p>
+            <nav className="mt-3 flex flex-col gap-2 text-xs font-semibold text-muted">
+              <Link href="/about" className="hover:text-primary">
+                About Us
+              </Link>
+              <Link href="/help" className="hover:text-primary">
+                Help &amp; Support
+              </Link>
+              <Link href="/privacy" className="hover:text-primary">
+                Privacy Policy
+              </Link>
+              <Link href="/terms" className="hover:text-primary">
+                Terms of Service
+              </Link>
+            </nav>
+          </div>
         </div>
       </div>
       <div className="mx-auto mt-8 max-w-6xl border-t border-border/70 pt-6 text-center text-xs text-muted">

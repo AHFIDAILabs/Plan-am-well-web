@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useEffect, useState, useCallback, ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { apiGet, apiPost } from "@/lib/api";
+import { apiGet, apiPost, apiDelete } from "@/lib/api";
 
 export interface SessionUser {
   id: string;
@@ -28,6 +28,7 @@ interface AuthContextValue {
   logout: () => Promise<void>;
   forgotPassword: (email: string) => Promise<LoginResult>;
   resetPassword: (token: string, password: string) => Promise<LoginResult>;
+  deleteAccount: (password: string) => Promise<LoginResult>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -119,9 +120,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { success: data.success, message: data.message };
   }, []);
 
+  const deleteAccount = useCallback(async (password: string) => {
+    const { data } = await apiDelete<{ success: boolean; message?: string }>("/api/auth/me", { password });
+    if (data.success) {
+      setUser(null);
+      setIsAnonymous(false);
+      router.push("/");
+    }
+    return { success: data.success, message: data.message };
+  }, [router]);
+
   return (
     <AuthContext.Provider
-      value={{ user, isAnonymous, loading, login, register, continueAsGuest, logout, forgotPassword, resetPassword }}
+      value={{
+        user,
+        isAnonymous,
+        loading,
+        login,
+        register,
+        continueAsGuest,
+        logout,
+        forgotPassword,
+        resetPassword,
+        deleteAccount,
+      }}
     >
       {children}
     </AuthContext.Provider>

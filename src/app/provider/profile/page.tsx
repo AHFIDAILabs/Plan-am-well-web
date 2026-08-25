@@ -1,11 +1,16 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { apiGet, apiPut } from "@/lib/api";
+import { useEffect, useRef, useState } from "react";
+import { apiGet, apiPut, apiPutForm } from "@/lib/api";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { Textarea } from "@/components/ui/Textarea";
-import { Doctor, DoctorAvailability, WEEKDAYS, Weekday } from "@/lib/types";
+import { Card } from "@/components/ui/Card";
+import { Badge } from "@/components/ui/Badge";
+import { StarRow } from "@/components/ui/StarRating";
+import { Icon, ICONS } from "@/components/ui/Icon";
+import { Doctor, DoctorAvailability, WEEKDAYS, Weekday, doctorImageUrl, doctorFullName } from "@/lib/types";
+import { DeleteAccountSection } from "@/components/account/DeleteAccountSection";
 
 const SLOT_DURATION_OPTIONS = [15, 30, 45, 60];
 
@@ -71,6 +76,12 @@ export default function DoctorProfilePage() {
   const [availabilityError, setAvailabilityError] = useState<string | null>(null);
   const [availabilitySaved, setAvailabilitySaved] = useState(false);
 
+  const [reviewsTotal, setReviewsTotal] = useState(0);
+
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const [imageError, setImageError] = useState<string | null>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
+
   useEffect(() => {
     apiGet<{ success: boolean; data?: Doctor; message?: string }>("/api/doctors/me").then(({ data }) => {
       if (data.success && data.data) {
@@ -86,6 +97,12 @@ export default function DoctorProfilePage() {
         const { avail: a, slotDuration: d } = availabilityToForm(data.data.availability);
         setAvail(a);
         setSlotDuration(d);
+
+        apiGet<{ success: boolean; data?: { total: number } }>(`/api/reviews/doctor/${data.data._id}?limit=1`).then(
+          ({ data: reviewsRes }) => {
+            if (reviewsRes.success && reviewsRes.data) setReviewsTotal(reviewsRes.data.total);
+          }
+        );
       } else {
         setLoadError(data.message ?? "Could not load your profile.");
       }
@@ -101,12 +118,16 @@ export default function DoctorProfilePage() {
     if (!doctor) return;
     setSavingProfile(true);
     setProfileError(null);
-    const { data } = await apiPut<{ success: boolean; message?: string; data?: Doctor }>(
+    const fd = new FormData();
+    fd.append("firstName", form.firstName);
+    fd.append("lastName", form.lastName);
+    fd.append("contactNumber", form.contactNumber);
+    fd.append("specialization", form.specialization);
+    if (form.yearsOfExperience) fd.append("yearsOfExperience", form.yearsOfExperience);
+    fd.append("bio", form.bio);
+    const { data } = await apiPutForm<{ success: boolean; message?: string; data?: Doctor }>(
       `/api/doctors/${doctor._id}`,
-      {
-        ...form,
-        yearsOfExperience: form.yearsOfExperience ? Number(form.yearsOfExperience) : undefined,
-      }
+      fd
     );
     setSavingProfile(false);
     if (data.success && data.data) {
@@ -114,6 +135,24 @@ export default function DoctorProfilePage() {
       setProfileSaved(true);
     } else {
       setProfileError(data.message ?? "Could not save your changes.");
+    }
+  }
+
+  async function handleImageSelected(file: File) {
+    if (!doctor) return;
+    setUploadingImage(true);
+    setImageError(null);
+    const fd = new FormData();
+    fd.append("doctorImage", file);
+    const { data } = await apiPutForm<{ success: boolean; message?: string; data?: Doctor }>(
+      `/api/doctors/${doctor._id}`,
+      fd
+    );
+    setUploadingImage(false);
+    if (data.success && data.data) {
+      setDoctor(data.data);
+    } else {
+      setImageError(data.message ?? "Could not update your photo.");
     }
   }
 
@@ -159,18 +198,95 @@ export default function DoctorProfilePage() {
   }
 
   const statusInfo = STATUS_COPY[doctor.status];
+  const imageUrl = doctorImageUrl(doctor);
 
   return (
     <div>
       <h1 className="text-2xl font-bold tracking-tight text-heading">Profile &amp; Approval</h1>
       <p className="mt-1 text-sm text-muted">Manage your public profile and weekly availability.</p>
 
-      <div className="mt-4 flex items-center gap-3">
-        <span className={`rounded-full px-3 py-1 text-xs font-semibold ${statusInfo.className}`}>
-          {statusInfo.label}
-        </span>
-        <p className="text-sm text-muted">{statusInfo.hint}</p>
-      </div>
+      <Card className="relative mt-6 max-w-2xl">
+        {doctor.status === "approved" && (
+          <Badge variant="blue" className="absolute right-6 top-6">
+            <Icon path={ICONS.verified} className="h-3.5 w-3.5" /> MDCN Verified
+          </Badge>
+        )}
+        <div className="flex flex-col items-center gap-6 sm:flex-row sm:items-start">
+          <button
+            type="button"
+            onClick={() => imageInputRef.current?.click()}
+            disabled={uploadingImage}
+            aria-label="Change profile photo"
+            className="group relative h-24 w-24 shrink-0 overflow-hidden rounded-full disabled:opacity-70"
+          >
+            {imageUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={imageUrl} alt={doctorFullName(doctor)} className="h-full w-full object-cover" />
+            ) : (
+              <div className="flex h-full w-full items-center justify-center bg-accent-pink-bg text-2xl font-bold text-primary">
+                {doctor.firstName[0]}
+                {doctor.lastName[0]}
+              </div>
+            )}
+            <div className="absolute inset-0 flex items-center justify-center bg-black/0 transition-colors group-hover:bg-black/40">
+              {uploadingImage ? (
+                <span className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+              ) : (
+                <Icon
+                  path={ICONS.image}
+                  className="h-5 w-5 text-white opacity-0 transition-opacity group-hover:opacity-100"
+                />
+              )}
+            </div>
+          </button>
+          <input
+            ref={imageInputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              e.target.value = "";
+              if (file) handleImageSelected(file);
+            }}
+          />
+          <div className="text-center sm:text-left">
+            <p className="text-xl font-bold text-heading">{doctorFullName(doctor)}</p>
+            <p className="font-medium text-primary">{doctor.specialization}</p>
+            {reviewsTotal > 0 && (
+              <div className="mt-1 flex items-center justify-center gap-2 sm:justify-start">
+                <StarRow rating={doctor.ratings ?? 0} size="h-4 w-4" />
+                <span className="text-sm text-heading">{(doctor.ratings ?? 0).toFixed(1)}</span>
+                <span className="text-sm text-muted">
+                  ({reviewsTotal} review{reviewsTotal === 1 ? "" : "s"})
+                </span>
+              </div>
+            )}
+            {doctor.status !== "approved" && (
+              <span className={`mt-2 inline-block rounded-full px-3 py-1 text-xs font-semibold ${statusInfo.className}`}>
+                {statusInfo.label}
+              </span>
+            )}
+            {doctor.status !== "approved" && <p className="mt-1 text-xs text-muted">{statusInfo.hint}</p>}
+            {imageError && <p className="mt-1 text-xs text-red-600">{imageError}</p>}
+          </div>
+        </div>
+
+        {doctor.licenseNumber && (
+          <div className="mt-5 grid grid-cols-1 gap-3 border-t border-border pt-5 sm:grid-cols-2">
+            <div className="rounded-lg border border-border bg-input-bg p-3">
+              <p className="text-xs text-muted">License Number</p>
+              <p className="font-mono text-sm font-semibold text-heading">{doctor.licenseNumber}</p>
+            </div>
+            {doctor.yearsOfExperience !== undefined && (
+              <div className="rounded-lg border border-border bg-input-bg p-3">
+                <p className="text-xs text-muted">Experience</p>
+                <p className="text-sm font-semibold text-heading">{doctor.yearsOfExperience} years</p>
+              </div>
+            )}
+          </div>
+        )}
+      </Card>
 
       <div className="mt-6 max-w-2xl rounded-card bg-card-bg shadow-atmospheric p-6">
         <h2 className="font-bold text-heading">Profile details</h2>
@@ -292,6 +408,8 @@ export default function DoctorProfilePage() {
           Save availability
         </Button>
       </div>
+
+      <DeleteAccountSection />
     </div>
   );
 }
