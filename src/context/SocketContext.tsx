@@ -78,22 +78,25 @@ export function SocketProvider({ children }: { children: ReactNode }) {
 
     newSocket.on("connect", () => setConnected(true));
     newSocket.on("disconnect", () => setConnected(false));
-    newSocket.on("call-ringing", (payload: IncomingCall) => setIncomingCall(payload));
-    // A chat-initiated call previously only ever showed up here if the
-    // recipient's ChatThread for that exact conversation happened to already
-    // be open — every other page (including this global modal, which is
-    // what actually reaches someone regardless of what they're looking at)
-    // never even knew a request existed. call-ringing was the only event
-    // wired up globally; this is its chat-originated counterpart.
-    newSocket.on(
-      "video-call-request",
-      (payload: { conversationId: string; requesterName: string; requestId: string }) =>
-        setIncomingCall({
-          callerName: payload.requesterName,
-          conversationId: payload.conversationId,
-          videoRequestId: payload.requestId,
-        })
-    );
+    // Canonical for BOTH a direct appointment-page call and a chat-initiated
+    // one — the backend now unifies both through notifyIncomingCall(), which
+    // populates conversationId/videoRequestId only for the chat case. There
+    // used to be a second, chat-only "video-call-request" event registered
+    // here too; it's gone now that chat goes through this same path.
+    newSocket.on("incoming-call", (payload: IncomingCall) => setIncomingCall(payload));
+    // The caller cancelling mid-ring, or this same user answering on
+    // another session (WhatsApp-style "answered elsewhere"), both arrive as
+    // call-cancelled — dismiss the modal immediately instead of leaving it
+    // open (and ringing) after the call is no longer there to join.
+    newSocket.on("call-cancelled", (payload: { appointmentId?: string; videoRequestId?: string }) => {
+      setIncomingCall((prev) => {
+        if (!prev) return prev;
+        const matches =
+          (payload.appointmentId && payload.appointmentId === prev.appointmentId) ||
+          (payload.videoRequestId && payload.videoRequestId === prev.videoRequestId);
+        return matches ? null : prev;
+      });
+    });
     // socket.io-client's own reconnection (reconnectionAttempts: 5) gives up
     // permanently once exhausted — an outage longer than that would leave
     // this socket dead for the rest of the session with nothing to revive

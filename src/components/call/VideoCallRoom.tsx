@@ -108,7 +108,7 @@ export function VideoCallRoom({
       socket!.off("webrtc-answer");
       socket!.off("webrtc-ice-candidate");
       socket!.off("call-ended");
-      socket!.off("call-declined");
+      socket!.off("call-cancelled");
       socket!.emit("leave-appointment", { appointmentId });
       localStreamRef.current?.getTracks().forEach((t) => t.stop());
       pcRef.current?.close();
@@ -276,10 +276,14 @@ export function VideoCallRoom({
           cleanup();
         });
 
-        socket!.on("call-declined", (payload: { appointmentId: string }) => {
+        socket!.on("call-cancelled", (payload: { appointmentId: string; reason?: string }) => {
           if (payload.appointmentId !== appointmentId) return;
+          // "answered-elsewhere" targets this same user's OTHER sessions when
+          // THEY are the one answering a ring — not relevant to this screen,
+          // which only ever reaches here once already committed to the call.
+          if (payload.reason === "answered-elsewhere") return;
           logCallEnded();
-          setErrorMessage("The call was declined.");
+          setErrorMessage(payload.reason === "no-answer" ? "No answer." : "The call was declined.");
           setState("ended");
           cleanup();
         });
@@ -310,7 +314,14 @@ export function VideoCallRoom({
 
   async function endCall() {
     logCallEnded();
-    await apiPost("/api/video/end-call", { appointmentId });
+    // Still ringing out, nobody has answered yet — cancel instead of end, so
+    // the other side's incoming-call UI dismisses immediately (call-cancelled)
+    // rather than ringing the full 60s after we've already backed out.
+    if (state === "ringing") {
+      await apiPost("/api/video/cancel", { appointmentId });
+    } else {
+      await apiPost("/api/video/end-call", { appointmentId });
+    }
     setState("ended");
     router.push(backHref);
   }
