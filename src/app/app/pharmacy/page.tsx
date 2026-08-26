@@ -1,14 +1,13 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
 import { apiGet, apiPost } from "@/lib/api";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
-import { Button } from "@/components/ui/Button";
 import { PharmacySubNav } from "@/components/pharmacy/PharmacySubNav";
 import { ProductCard } from "@/components/pharmacy/ProductCard";
 import { Product } from "@/lib/types";
+import { realCategoryName } from "@/lib/product";
 
 export default function PharmacyPage() {
   const [products, setProducts] = useState<Product[] | null>(null);
@@ -30,15 +29,15 @@ export default function PharmacyPage() {
 
   const categories = useMemo(() => {
     if (!products) return [];
-    return Array.from(new Set(products.map((p) => p.categoryName).filter((c): c is string => !!c))).sort();
+    return Array.from(new Set(products.map((p) => realCategoryName(p.categoryName)).filter((c): c is string => !!c))).sort();
   }, [products]);
 
   const filtered = useMemo(() => {
     if (!products) return [];
     const q = search.trim().toLowerCase();
     return products.filter((p) => {
-      const matchesCategory = category === "all" || p.categoryName === category;
-      const matchesSearch = !q || p.name.toLowerCase().includes(q) || p.categoryName?.toLowerCase().includes(q);
+      const matchesCategory = category === "all" || realCategoryName(p.categoryName) === category;
+      const matchesSearch = !q || p.name.toLowerCase().includes(q) || realCategoryName(p.categoryName)?.toLowerCase().includes(q);
       return matchesCategory && matchesSearch;
     });
   }, [products, search, category]);

@@ -6,7 +6,9 @@ import Link from "next/link";
 import { apiGet, apiPost } from "@/lib/api";
 import { Button } from "@/components/ui/Button";
 import { Textarea } from "@/components/ui/Textarea";
+import { Icon, ICONS } from "@/components/ui/Icon";
 import { Product } from "@/lib/types";
+import { realCategoryName } from "@/lib/product";
 
 export default function ProductDetailPage() {
   const params = useParams<{ id: string }>();
@@ -88,14 +90,16 @@ export default function ProductDetailPage() {
         </div>
 
         <div className="rounded-card bg-card-bg shadow-atmospheric p-6">
-          <p className="text-xs text-muted">{product.categoryName}</p>
+          {realCategoryName(product.categoryName) && (
+            <p className="text-xs text-muted">{realCategoryName(product.categoryName)}</p>
+          )}
           <h1 className="mt-1 text-xl font-black text-heading">{product.name}</h1>
           {product.manufacturerName && <p className="mt-1 text-sm text-muted">By {product.manufacturerName}</p>}
           <p className="mt-3 text-2xl font-bold text-heading">₦{product.price.toLocaleString()}</p>
 
           {product.prescriptionRequired && (
-            <span className="mt-2 inline-block rounded-full bg-accent-amber-bg px-3 py-1 text-xs font-semibold text-accent-amber-fg">
-              Prescription required
+            <span className="mt-2 inline-flex items-center gap-1 rounded-full bg-accent-amber-bg px-3 py-1 text-xs font-semibold text-accent-amber-fg">
+              <Icon path={ICONS.alertCircle} className="h-3.5 w-3.5" /> Prescription required
             </span>
           )}
 
@@ -105,19 +109,25 @@ export default function ProductDetailPage() {
             <div className="mt-5">
               <div className="flex items-center gap-3">
                 <label className="text-xs font-semibold text-heading">Quantity</label>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-3 rounded-full border border-border p-1">
                   <button
+                    type="button"
                     onClick={() => setQuantity((q) => Math.max(1, q - 1))}
-                    className="h-8 w-8 rounded-lg border border-border text-heading hover:border-primary"
+                    disabled={quantity <= 1}
+                    aria-label="Decrease quantity"
+                    className="flex h-8 w-8 items-center justify-center rounded-full text-heading transition-colors hover:bg-input-bg disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
                   >
-                    &minus;
+                    <Icon path={ICONS.minus} className="h-4 w-4" />
                   </button>
-                  <span className="w-8 text-center text-sm font-semibold text-heading">{quantity}</span>
+                  <span className="w-4 text-center text-sm font-semibold text-heading">{quantity}</span>
                   <button
+                    type="button"
                     onClick={() => setQuantity((q) => Math.min(product.stockQuantity, q + 1))}
-                    className="h-8 w-8 rounded-lg border border-border text-heading hover:border-primary"
+                    disabled={quantity >= product.stockQuantity}
+                    aria-label="Increase quantity"
+                    className="flex h-8 w-8 items-center justify-center rounded-full text-heading transition-colors hover:bg-input-bg disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
                   >
-                    +
+                    <Icon path={ICONS.add} className="h-4 w-4" />
                   </button>
                 </div>
               </div>

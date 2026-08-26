@@ -2,16 +2,7 @@ import Link from "next/link";
 import { Icon, ICONS } from "@/components/ui/Icon";
 import { Button } from "@/components/ui/Button";
 import { Product } from "@/lib/types";
-
-// Some partner product feeds send "N/A" (or an empty string) for
-// uncategorized items instead of omitting the field — showing that
-// placeholder verbatim reads as a bug to a customer, so treat it as "no
-// category" rather than literal text worth displaying.
-function realCategoryName(categoryName?: string): string | null {
-  const trimmed = categoryName?.trim();
-  if (!trimmed || trimmed.toLowerCase() === "n/a") return null;
-  return trimmed;
-}
+import { realCategoryName } from "@/lib/product";
 
 export function ProductCard({
   product,
