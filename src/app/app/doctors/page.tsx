@@ -5,7 +5,7 @@ import Link from "next/link";
 import { apiGet } from "@/lib/api";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
-import { Doctor, doctorFullName, doctorImageUrl } from "@/lib/types";
+import { Doctor, doctorFullName, doctorImageUrl, formatNextAvailable } from "@/lib/types";
 
 export default function DoctorsListPage() {
   const [doctors, setDoctors] = useState<Doctor[] | null>(null);
@@ -108,9 +108,15 @@ export default function DoctorsListPage() {
                   {doctor.yearsOfExperience ? `${doctor.yearsOfExperience} yrs experience` : "Experience not listed"}
                 </span>
                 {typeof doctor.ratings === "number" && doctor.ratings > 0 && (
-                  <span className="font-semibold text-secondary">★ {doctor.ratings.toFixed(1)}</span>
+                  <span className="font-semibold text-secondary">
+                    ★ {doctor.ratings.toFixed(1)}
+                    {typeof doctor.reviewCount === "number" && ` (${doctor.reviewCount})`}
+                  </span>
                 )}
               </div>
+              <p className="mt-1 text-xs text-muted">
+                Next available: {formatNextAvailable(doctor.nextAvailable) ?? "No upcoming slots"}
+              </p>
             </Link>
           );
         })}

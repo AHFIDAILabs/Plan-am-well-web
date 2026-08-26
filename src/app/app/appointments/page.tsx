@@ -43,21 +43,34 @@ function getTimeUntil(date: Date): string {
   return "now";
 }
 
+// Statuses that mean "this session is live or about to be" — a call in
+// progress sets status to "in-progress" the moment it starts ringing and
+// stays there until the doctor explicitly ends the appointment, so it has
+// to count as upcoming/active here the same way the dashboard widget
+// (UPCOMING_STATUSES in app/page.tsx) already treats it. Previously this
+// function only recognized "confirmed", so an in-progress appointment
+// matched no tab at all and simply disappeared from this page.
+const ACTIVE_STATUSES = new Set(["confirmed", "confirmed-upcoming", "about-to-start", "in-progress"]);
+const TERMINAL_STATUSES = new Set(["completed", "call-ended", "cancelled", "rejected", "expired"]);
+
 function matchesTab(appt: Appointment, tab: Tab): boolean {
   const now = new Date();
   const scheduledAt = new Date(appt.scheduledAt);
   switch (tab) {
     case "upcoming":
-      return appt.status === "confirmed" && scheduledAt >= now;
+      // "in-progress" is live right now regardless of its original scheduled
+      // time — a call that's still going shouldn't fall out of "upcoming"
+      // into "past" just because its start time has ticked by.
+      return (
+        appt.status === "in-progress" ||
+        (ACTIVE_STATUSES.has(appt.status) && scheduledAt >= now)
+      );
     case "pending":
       return appt.status === "pending" || appt.status === "awaiting-payment";
     case "past":
       return (
-        appt.status === "completed" ||
-        appt.status === "cancelled" ||
-        appt.status === "rejected" ||
-        appt.status === "expired" ||
-        (appt.status === "confirmed" && scheduledAt < now)
+        TERMINAL_STATUSES.has(appt.status) ||
+        (ACTIVE_STATUSES.has(appt.status) && appt.status !== "in-progress" && scheduledAt < now)
       );
     default:
       return false;

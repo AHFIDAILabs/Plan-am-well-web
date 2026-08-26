@@ -14,7 +14,7 @@ export const WEEKDAY_BY_JS_DAY: Weekday[] = [
   "Saturday",
 ];
 
-export type DoctorAvailability = Partial<Record<Weekday, { from: string; to: string }>> & {
+export type DoctorAvailability = Partial<Record<Weekday, { available?: boolean; from: string; to: string }>> & {
   slotDuration?: number;
 };
 
@@ -31,9 +31,14 @@ export interface Doctor {
   bio?: string;
   contactNumber?: string;
   ratings?: number;
+  reviewCount?: number;
   reviews?: Array<{ userId: string; rating: number; comment: string }>;
   status: "submitted" | "reviewing" | "approved" | "rejected";
   availability?: DoctorAvailability;
+  // ISO string — computed server-side (backend/src/services/doctorAvailability.ts),
+  // never cached alongside the rest of the doctor profile since it depends
+  // on live booking state. Null means nothing opens up in the lookahead window.
+  nextAvailable?: string | null;
 }
 
 export function doctorImageUrl(doctor: Pick<Doctor, "doctorImage" | "profileImage">): string | null {
@@ -48,6 +53,21 @@ export function doctorImageUrl(doctor: Pick<Doctor, "doctorImage" | "profileImag
 
 export function doctorFullName(doctor: Pick<Doctor, "firstName" | "lastName">): string {
   return `Dr. ${doctor.firstName} ${doctor.lastName}`;
+}
+
+// Real, server-computed next open slot (backend/src/services/doctorAvailability.ts).
+export function formatNextAvailable(iso?: string | null): string | null {
+  if (!iso) return null;
+  const date = new Date(iso);
+  const now = new Date();
+  const time = date.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+  const isToday = date.toDateString() === now.toDateString();
+  const tomorrow = new Date(now);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const isTomorrow = date.toDateString() === tomorrow.toDateString();
+  if (isToday) return `Today, ${time}`;
+  if (isTomorrow) return `Tomorrow, ${time}`;
+  return `${date.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })}, ${time}`;
 }
 
 export function formatKobo(amountKobo: number, currency: string = "NGN"): string {

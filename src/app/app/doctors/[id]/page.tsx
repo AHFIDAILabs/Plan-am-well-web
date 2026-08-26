@@ -23,6 +23,7 @@ import {
   doctorFullName,
   doctorImageUrl,
   formatKobo,
+  formatNextAvailable,
 } from "@/lib/types";
 
 
@@ -57,7 +58,9 @@ function nextNDays(n: number): Date[] {
 // they've configured are bookable, at their exact hours and slot length.
 function hasAnyAvailability(availability?: DoctorAvailability): boolean {
   if (!availability) return false;
-  return WEEKDAYS.some((d) => availability[d]?.from && availability[d]?.to);
+  return WEEKDAYS.some(
+    (d) => availability[d]?.available !== false && availability[d]?.from && availability[d]?.to
+  );
 }
 
 function getDayAvailability(
@@ -66,7 +69,15 @@ function getDayAvailability(
 ): { from: string; to: string; slotDuration: number } | null {
   if (!availability) return null;
   const slot = availability[WEEKDAY_BY_JS_DAY[date.getDay()]];
-  if (!slot?.from || !slot?.to) return null;
+  // Two save conventions exist across the two clients: mobile's editor
+  // always writes all 7 days with an explicit `available` boolean (leaving
+  // stale from/to on a day toggled off); this page's own editor
+  // (provider/profile/page.tsx) omits a disabled day entirely instead,
+  // never writing `available` at all. So "unavailable" means
+  // `available === false` specifically — checking mere falsiness would wrongly
+  // treat every day this editor considers open (from/to present, `available`
+  // simply never set) as closed.
+  if (slot?.available === false || !slot?.from || !slot?.to) return null;
   return { from: slot.from, to: slot.to, slotDuration: availability.slotDuration ?? DEFAULT_SLOT_DURATION_MINUTES };
 }
 
@@ -373,6 +384,9 @@ export default function DoctorDetailPage() {
             {typeof doctor.ratings === "number" && doctor.ratings > 0 && (
               <p className="mt-1 text-center text-sm font-semibold text-secondary">★ {doctor.ratings.toFixed(1)}</p>
             )}
+            <p className="mt-1 text-center text-xs text-muted">
+              Next available: {formatNextAvailable(doctor.nextAvailable) ?? "No upcoming slots"}
+            </p>
             {doctor.yearsOfExperience ? (
               <p className="mt-3 text-center text-xs text-muted">{doctor.yearsOfExperience} years of experience</p>
             ) : null}
