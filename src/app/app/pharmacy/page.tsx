@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { Button } from "@/components/ui/Button";
 import { PharmacySubNav } from "@/components/pharmacy/PharmacySubNav";
+import { ProductCard } from "@/components/pharmacy/ProductCard";
 import { Product } from "@/lib/types";
 
 export default function PharmacyPage() {
@@ -82,48 +83,15 @@ export default function PharmacyPage() {
       {products && filtered.length === 0 && <p className="mt-6 text-sm text-muted">No products found.</p>}
 
       <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {filtered.map((product) => {
-          const outOfStock = product.stockQuantity <= 0;
-          return (
-            <div key={product._id} className="rounded-card bg-card-bg shadow-atmospheric">
-              <Link href={`/app/pharmacy/${product._id}`}>
-                {product.imageUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={product.imageUrl} alt={product.name} className="h-32 w-full rounded-t-xl object-cover" />
-                ) : (
-                  <div className="flex h-32 w-full items-center justify-center rounded-t-xl bg-accent-pink-bg text-xs text-muted">
-                    No image
-                  </div>
-                )}
-              </Link>
-              <div className="p-3">
-                <Link href={`/app/pharmacy/${product._id}`}>
-                  <p className="truncate text-sm font-semibold text-heading">{product.name}</p>
-                </Link>
-                <p className="text-xs text-muted">{product.categoryName}</p>
-                <div className="mt-2 flex items-center justify-between">
-                  <p className="font-bold text-heading">₦{product.price.toLocaleString()}</p>
-                  {product.prescriptionRequired && (
-                    <span className="rounded-full bg-accent-amber-bg px-2 py-0.5 text-[10px] font-semibold text-accent-amber-fg">
-                      Rx
-                    </span>
-                  )}
-                </div>
-                {outOfStock ? (
-                  <p className="mt-2 text-xs font-semibold text-red-600">Out of stock</p>
-                ) : (
-                  <Button
-                    className="mt-2 w-full"
-                    loading={addingId === product._id}
-                    onClick={() => handleAddToCart(product)}
-                  >
-                    {addedId === product._id ? "Added ✓" : "Add to cart"}
-                  </Button>
-                )}
-              </div>
-            </div>
-          );
-        })}
+        {filtered.map((product) => (
+          <ProductCard
+            key={product._id}
+            product={product}
+            adding={addingId === product._id}
+            added={addedId === product._id}
+            onAddToCart={handleAddToCart}
+          />
+        ))}
       </div>
     </div>
   );

@@ -36,7 +36,16 @@ export function BrowseLink({
   }
 
   return (
-    <Link href={href} className={className} onClick={handleClick}>
+    // prefetch disabled: a signed-out visitor prefetching an /app/* route
+    // hits proxy.ts's auth check with no session cookie, which redirects to
+    // "/" — Next.js's router cache then holds onto that redirect keyed by
+    // this URL. If the same visitor later logs in and clicks the equivalent
+    // sidebar link (same pathname), the router can replay that stale cached
+    // redirect instead of fetching fresh, bouncing them back to "/" until a
+    // hard refresh clears the cache. This component already does its own
+    // guest-session-then-navigate handling on click, so eager prefetching
+    // never had any benefit here to trade off.
+    <Link href={href} prefetch={false} className={className} onClick={handleClick}>
       {children}
     </Link>
   );

@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useContext, useEffect, useState, useCallback, ReactNode } from "react";
+import { useRouter } from "next/navigation";
 import { apiGet, apiPut, apiDelete } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import { useSocket } from "@/context/SocketContext";
@@ -29,6 +30,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   const { user, isAnonymous } = useAuth();
   const { socket } = useSocket();
   const { toast } = useToast();
+  const router = useRouter();
   const [notifications, setNotifications] = useState<AppNotification[] | null>(null);
   const [unreadCount, setUnreadCount] = useState(0);
 
@@ -72,10 +74,24 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       });
       if (!notification.isRead) {
         setUnreadCount((prev) => prev + 1);
+        // Incoming-call notifications (notifyCallStarted, metadata.autoJoin)
+        // arrive alongside the live "incoming-call" socket event that pops
+        // the accept/decline modal — but that modal only exists for the
+        // instant the ring is active. Making this toast clickable gives a
+        // second, more durable way in: it deep-links straight into the call
+        // room, which does the same thing accepting from the modal would.
+        const appointmentId = notification.metadata?.appointmentId;
+        const isIncomingCall = notification.metadata?.autoJoin && appointmentId;
         toast({
           title: notification.title,
           description: notification.message,
           variant: notification.type === "comment_flagged" ? "error" : "default",
+          onClick: isIncomingCall
+            ? () => {
+                const base = user?.role === "Doctor" ? "/provider" : "/app";
+                router.push(`${base}/appointments/${appointmentId}/call`);
+              }
+            : undefined,
         });
       }
     }
@@ -93,7 +109,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       socket.off("notification", handleNewNotification);
       socket.off("connect", handleReconnect);
     };
-  }, [socket, canReceive, refresh, toast]);
+  }, [socket, canReceive, refresh, toast, router, user?.role]);
 
   async function markAsRead(id: string) {
     await apiPut(`/api/notifications/${id}/read`);

@@ -10,12 +10,14 @@ interface ToastOptions {
   description?: string;
   variant?: ToastVariant;
   duration?: number;
+  onClick?: () => void;
 }
 
 interface Toast extends Required<Pick<ToastOptions, "title" | "variant" | "duration">> {
   id: string;
   description?: string;
   leaving: boolean;
+  onClick?: () => void;
 }
 
 interface ToastContextValue {
@@ -53,7 +55,15 @@ export function ToastProvider({ children }: { children: ReactNode }) {
 
       setToasts((prev) => [
         ...prev,
-        { id, title: opts.title, description: opts.description, variant: opts.variant ?? "default", duration, leaving: false },
+        {
+          id,
+          title: opts.title,
+          description: opts.description,
+          variant: opts.variant ?? "default",
+          duration,
+          leaving: false,
+          onClick: opts.onClick,
+        },
       ]);
 
       const timer = setTimeout(() => remove(id), duration);
@@ -71,10 +81,19 @@ export function ToastProvider({ children }: { children: ReactNode }) {
           return (
             <div
               key={t.id}
-              role="status"
+              role={t.onClick ? "button" : "status"}
+              tabIndex={t.onClick ? 0 : undefined}
+              onClick={t.onClick}
+              onKeyDown={
+                t.onClick
+                  ? (e) => {
+                      if (e.key === "Enter" || e.key === " ") t.onClick!();
+                    }
+                  : undefined
+              }
               className={`pointer-events-auto flex w-full max-w-sm items-start gap-3 rounded-card bg-card-bg p-4 shadow-atmospheric transition-all duration-200 ${
-                t.leaving ? "translate-x-4 opacity-0" : "translate-x-0 opacity-100"
-              }`}
+                t.onClick ? "cursor-pointer hover:shadow-md" : ""
+              } ${t.leaving ? "translate-x-4 opacity-0" : "translate-x-0 opacity-100"}`}
             >
               <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${style.iconBg} ${style.iconFg}`}>
                 <Icon path={ICONS[style.icon]} className="h-4 w-4" />
@@ -85,7 +104,8 @@ export function ToastProvider({ children }: { children: ReactNode }) {
               </div>
               <button
                 type="button"
-                onClick={() => {
+                onClick={(e) => {
+                  e.stopPropagation();
                   const timer = timers.current.get(t.id);
                   if (timer) clearTimeout(timer);
                   remove(t.id);
