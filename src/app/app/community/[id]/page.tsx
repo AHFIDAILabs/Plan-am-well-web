@@ -3,13 +3,14 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { apiGet, apiPost } from "@/lib/api";
+import { apiGet, apiPost, apiDelete } from "@/lib/api";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Modal } from "@/components/ui/Modal";
 import { GuestGate } from "@/components/auth/GuestGate";
 import { useAuth } from "@/context/AuthContext";
 import { CommunityEvent } from "@/lib/types";
+import { EventBanner } from "@/components/community/EventBanner";
 
 export default function CommunityEventDetailPage() {
   const params = useParams<{ id: string }>();
@@ -22,9 +23,9 @@ export default function CommunityEventDetailPage() {
   const [reminderOptIn, setReminderOptIn] = useState(false);
   const [saving, setSaving] = useState(false);
   const [rsvpError, setRsvpError] = useState<string | null>(null);
-  const [rsvped, setRsvped] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
 
-  useEffect(() => {
+  function load() {
     apiGet<{ success: boolean; data?: CommunityEvent; message?: string }>(`/api/events/${params.id}`).then(
       ({ data }) => {
         if (data.success && data.data) {
@@ -34,10 +35,15 @@ export default function CommunityEventDetailPage() {
         }
       }
     );
-  }, [params.id]);
+  }
+
+  useEffect(load, [params.id]);
+
+  const rsvped = !!event?.myRsvp;
 
   function openRsvp() {
-    setChosenName(user?.pseudonym ?? "");
+    setChosenName(event?.myRsvp?.chosenName ?? user?.pseudonym ?? "");
+    setReminderOptIn(event?.myRsvp?.reminderOptIn ?? false);
     setRsvpError(null);
     setShowRsvp(true);
   }
@@ -58,10 +64,17 @@ export default function CommunityEventDetailPage() {
     setSaving(false);
     if (data.success) {
       setShowRsvp(false);
-      setRsvped(true);
+      load();
     } else {
       setRsvpError(data.message ?? "Could not RSVP to this event.");
     }
+  }
+
+  async function handleCancelRsvp() {
+    setCancelling(true);
+    await apiDelete(`/api/events/${params.id}/rsvp`);
+    setCancelling(false);
+    load();
   }
 
   if (error) {
@@ -85,10 +98,22 @@ export default function CommunityEventDetailPage() {
         &larr; Back to Community Hub
       </Link>
 
-      <div className="mx-auto mt-4 max-w-xl rounded-card bg-card-bg p-6 shadow-atmospheric">
-        {event.category && (
-          <span className="inline-block rounded-full bg-accent-blue-bg px-2 py-0.5 text-xs font-semibold text-accent-blue-fg">
-            {event.category}
+      <div className="mx-auto mt-4 max-w-xl overflow-hidden rounded-card bg-card-bg shadow-atmospheric">
+        <div className="relative h-48 w-full sm:h-56">
+          <EventBanner bannerImage={event.bannerImage} bannerPreset={event.bannerPreset} size="lg" />
+          {event.category && (
+            <span className="absolute left-4 top-4 rounded-full bg-white/90 px-3 py-1 text-xs font-semibold text-heading shadow-sm backdrop-blur-sm">
+              {event.category}
+            </span>
+          )}
+        </div>
+
+        <div className="p-6">
+        {/* Aggregate count only, never who — a lightweight sense that
+            others are here too without exposing anyone's identity. */}
+        {!!event.rsvpCount && (
+          <span className="text-xs font-semibold text-tertiary">
+            {event.rsvpCount} {event.rsvpCount === 1 ? "person" : "people"} going
           </span>
         )}
         <h1 className="mt-2 text-2xl font-bold tracking-tight text-heading">{event.title}</h1>
@@ -117,14 +142,28 @@ export default function CommunityEventDetailPage() {
           <p className="mt-1 text-sm text-body">{event.description}</p>
         </div>
 
-        {rsvpError === null && rsvped && <p className="mt-4 text-sm text-green-700">You&apos;re RSVP&apos;d for this event.</p>}
+        {rsvped && (
+          <p className="mt-4 text-sm text-green-700">
+            You&apos;re RSVP&apos;d as <strong>{event.myRsvp?.chosenName}</strong>.
+          </p>
+        )}
 
-        <div className="mt-6">
+        <div className="mt-6 flex flex-wrap gap-3">
           <GuestGate feature="Event RSVP">
-            <Button onClick={openRsvp} disabled={rsvped}>
-              {rsvped ? "You're going" : "RSVP to this event"}
-            </Button>
+            {rsvped ? (
+              <>
+                <Button variant="outline" onClick={openRsvp}>
+                  Edit RSVP
+                </Button>
+                <Button variant="outline" loading={cancelling} onClick={handleCancelRsvp}>
+                  Cancel RSVP
+                </Button>
+              </>
+            ) : (
+              <Button onClick={openRsvp}>RSVP to this event</Button>
+            )}
           </GuestGate>
+        </div>
         </div>
       </div>
 

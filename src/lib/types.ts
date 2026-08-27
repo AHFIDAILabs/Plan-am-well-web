@@ -213,6 +213,9 @@ export interface MedicationReminder {
   takenToday?: boolean;
 }
 
+// Kept in sync by hand with backend/src/models/Event.ts's EVENT_BANNER_PRESETS.
+export type EventBannerPreset = "support-circle" | "workshop" | "qa-session" | "wellness" | "celebration";
+
 export interface CommunityEvent {
   _id: string;
   title: string;
@@ -224,6 +227,14 @@ export interface CommunityEvent {
   isVirtual: boolean;
   capacity?: number;
   isActive: boolean;
+  bannerImage?: { url: string; publicId?: string } | null;
+  bannerPreset?: EventBannerPreset | null;
+  // Aggregate count only — never attendee identities, matches the
+  // confidentiality-first design of the rest of the app.
+  rsvpCount?: number;
+  // Only present on the single-event fetch, and only ever the viewer's own
+  // RSVP — never anyone else's.
+  myRsvp?: EventRsvp | null;
 }
 
 export interface EventRsvp {
@@ -234,6 +245,9 @@ export interface EventRsvp {
   reminderOptIn: boolean;
   status: "going" | "cancelled";
 }
+
+// GET /api/events/mine/rsvps populates eventId with the full event.
+export type MyEventRsvp = Omit<EventRsvp, "eventId"> & { eventId: CommunityEvent };
 
 export interface Partner {
   _id: string;
