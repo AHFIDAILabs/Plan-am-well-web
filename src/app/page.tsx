@@ -11,7 +11,8 @@ import { MarketingHeader } from "@/components/marketing/MarketingHeader";
 import { MarketingFooter } from "@/components/marketing/MarketingFooter";
 import { BrowseLink } from "@/components/marketing/BrowseLink";
 import { useMarketingLink } from "@/lib/useMarketingLink";
-import { Doctor, Partner, Product, doctorFullName, doctorImageUrl, partnerImageUrl } from "@/lib/types";
+import { Doctor, Partner, Product, CommunityEvent, doctorFullName, doctorImageUrl, partnerImageUrl } from "@/lib/types";
+import { EventBanner } from "@/components/community/EventBanner";
 
 // Leaflet touches `window` on import — must be client-only, never SSR'd.
 const ClinicsMapPreview = dynamic(
@@ -62,6 +63,7 @@ export default function LandingPage() {
   const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [partners, setPartners] = useState<Partner[]>([]);
+  const [events, setEvents] = useState<CommunityEvent[]>([]);
   const [heroIndex, setHeroIndex] = useState(0);
   const [heroPaused, setHeroPaused] = useState(false);
   const [chatIndex, setChatIndex] = useState(0);
@@ -78,6 +80,9 @@ export default function LandingPage() {
     });
     apiGet<{ success: boolean; data?: Partner[] }>("/api/partners/active").then(({ data }) => {
       if (data.success && data.data) setPartners(data.data);
+    });
+    apiGet<{ success: boolean; data?: CommunityEvent[] }>("/api/events").then(({ data }) => {
+      if (data.success && data.data) setEvents(data.data.slice(0, 3));
     });
   }, []);
 
@@ -483,6 +488,59 @@ export default function LandingPage() {
                     </div>
                   );
                 })}
+              </div>
+            </div>
+          </section>
+        )}
+
+        {/* Community Hub */}
+        {events.length > 0 && (
+          <section className="px-5 py-20 md:px-10">
+            <div className="mx-auto max-w-6xl">
+              <div className="flex flex-wrap items-end justify-between gap-4">
+                <div className="max-w-2xl">
+                  <h2 className="text-3xl font-bold text-heading">Community Hub</h2>
+                  <p className="mt-3 text-base text-muted">
+                    Live support groups, workshops, and Q&amp;A sessions — RSVP with a chosen name, no real identity
+                    required.
+                  </p>
+                </div>
+                <BrowseLink path="/app/community" className="shrink-0">
+                  <Button variant="outline">See all events</Button>
+                </BrowseLink>
+              </div>
+
+              <div className="mt-10 grid grid-cols-1 gap-6 md:grid-cols-3">
+                {events.map((event) => (
+                  <BrowseLink
+                    key={event._id}
+                    path={`/app/community/${event._id}`}
+                    className="group block overflow-hidden rounded-card border border-border bg-card-bg shadow-sm transition-all hover:-translate-y-1 hover:shadow-md"
+                  >
+                    <div className="relative h-40 w-full">
+                      <EventBanner bannerImage={event.bannerImage} bannerPreset={event.bannerPreset} />
+                      {event.category && (
+                        <span className="absolute left-3 top-3 rounded-full bg-white/90 px-2.5 py-1 text-xs font-semibold text-heading shadow-sm backdrop-blur-sm">
+                          {event.category}
+                        </span>
+                      )}
+                    </div>
+                    <div className="p-5">
+                      <h3 className="text-base font-semibold text-heading">{event.title}</h3>
+                      <p className="mt-2 text-xs text-muted">
+                        {new Date(event.startsAt).toLocaleString(undefined, {
+                          weekday: "short",
+                          month: "short",
+                          day: "numeric",
+                          hour: "numeric",
+                          minute: "2-digit",
+                        })}
+                        {" · "}
+                        {event.isVirtual ? "Online" : event.location ?? "In person"}
+                      </p>
+                    </div>
+                  </BrowseLink>
+                ))}
               </div>
             </div>
           </section>
