@@ -331,7 +331,7 @@ export default function LandingPage() {
                     <div className="absolute inset-0 translate-x-4 translate-y-4 rounded-tl-[72px] rounded-br-[72px] bg-primary-container/25" />
                     <div className="relative aspect-4/5 -rotate-2 overflow-hidden rounded-tl-[72px] rounded-br-[72px] shadow-xl">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src="/team/doctor-1.jpg" alt="" className="h-full w-full object-cover" />
+                      <img src="/team/founder.jpeg" alt="" className="h-full w-full object-cover" />
                     </div>
                     <div className="absolute -bottom-4 -right-4 flex items-center gap-2 rounded-2xl bg-card-bg px-4 py-3 shadow-lg ring-1 ring-border/60">
                       <Icon path={ICONS.verified} className="h-4 w-4 text-primary" />
