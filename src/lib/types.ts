@@ -288,6 +288,7 @@ export interface AppNotification {
   metadata?: {
     appointmentId?: string;
     conversationId?: string;
+    orderId?: string;
     doctorName?: string;
     patientName?: string;
     otherPartyName?: string;

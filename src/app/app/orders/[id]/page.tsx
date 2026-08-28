@@ -3,7 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { apiGet } from "@/lib/api";
+import { apiGet, apiPost } from "@/lib/api";
+import { Button } from "@/components/ui/Button";
 import { GuestGate } from "@/components/auth/GuestGate";
 import { PharmacyOrder } from "@/lib/types";
 
@@ -28,6 +29,8 @@ function OrderDetailPageContent() {
   const params = useParams<{ id: string }>();
   const [order, setOrder] = useState<PharmacyOrder | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [paying, setPaying] = useState(false);
+  const [payError, setPayError] = useState<string | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   function load() {
@@ -44,6 +47,22 @@ function OrderDetailPageContent() {
         }
       }
     );
+  }
+
+  async function handlePayNow() {
+    if (!order) return;
+    setPaying(true);
+    setPayError(null);
+    const { data } = await apiPost<{ success: boolean; message?: string; data?: { checkoutUrl?: string } }>(
+      "/api/payment/initiate",
+      { orderId: order._id }
+    );
+    if (data.success && data.data?.checkoutUrl) {
+      window.location.href = data.data.checkoutUrl;
+      return;
+    }
+    setPaying(false);
+    setPayError(data.message ?? "Could not start payment. Please try again.");
   }
 
   useEffect(() => {
@@ -94,9 +113,16 @@ function OrderDetailPageContent() {
         </div>
 
         {order.paymentStatus === "pending" && (
-          <p className="mt-2 text-xs text-muted">
-            We&apos;re waiting for payment confirmation — this page updates automatically.
-          </p>
+          <div className="mt-4 rounded-2xl border border-accent-amber-fg/20 bg-accent-amber-bg/40 p-4">
+            <p className="text-sm text-heading">This order hasn&apos;t been paid for yet.</p>
+            <p className="mt-1 text-xs text-muted">
+              This page updates automatically once payment is confirmed.
+            </p>
+            {payError && <p className="mt-2 text-xs text-red-600">{payError}</p>}
+            <Button className="mt-3 h-11 px-6 text-sm" loading={paying} onClick={handlePayNow}>
+              {paying ? "Starting payment..." : "Complete Payment"}
+            </Button>
+          </div>
         )}
 
         <div className="mt-5 flex flex-col gap-2">

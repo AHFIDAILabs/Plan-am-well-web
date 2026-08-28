@@ -8,6 +8,7 @@ export default function PatientNotificationsPage() {
         appointmentsPath="/app/appointments"
         appointmentDetailBase="/app/appointments"
         messagesPath="/app/messages"
+        ordersPath="/app/orders"
       />
     </GuestGate>
   );

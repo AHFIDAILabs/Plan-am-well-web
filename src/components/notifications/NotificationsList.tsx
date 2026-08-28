@@ -20,8 +20,18 @@ const TYPE_ICON: Record<string, string> = {
 
 function notificationLink(
   n: AppNotification,
-  paths: { appointments: string; appointmentDetailBase?: string; messages: string }
+  paths: { appointments: string; appointmentDetailBase?: string; messages: string; orders?: string }
 ): string | null {
+  // "Complete Your Payment" (and other order notifications) previously fell
+  // through to null here since this only ever checked appointmentId — the
+  // notification was un-clickable, the one entry point that existed to it.
+  // orders is only passed by the patient portal (see app/notifications/page.tsx)
+  // — orders are never created for/notified to doctor accounts, so the
+  // provider portal's usage of this same component simply omits it.
+  if (n.type === "order" && n.metadata?.orderId && paths.orders) {
+    return `${paths.orders}/${n.metadata.orderId}`;
+  }
+
   const appointmentId = n.metadata?.appointmentId;
   if (!appointmentId) return null;
   if (n.type === "new_message" || n.type === "chat") return `${paths.messages}/${appointmentId}`;
@@ -35,10 +45,12 @@ export function NotificationsList({
   appointmentsPath,
   appointmentDetailBase,
   messagesPath,
+  ordersPath,
 }: {
   appointmentsPath: string;
   appointmentDetailBase?: string;
   messagesPath: string;
+  ordersPath?: string;
 }) {
   const { notifications, markAsRead, markAllAsRead, deleteNotification } = useNotifications();
   const [markingAll, setMarkingAll] = useState(false);
@@ -82,7 +94,12 @@ export function NotificationsList({
 
       <div className="mt-6 flex flex-col gap-2">
         {notifications?.map((n) => {
-          const href = notificationLink(n, { appointments: appointmentsPath, appointmentDetailBase, messages: messagesPath });
+          const href = notificationLink(n, {
+            appointments: appointmentsPath,
+            appointmentDetailBase,
+            messages: messagesPath,
+            orders: ordersPath,
+          });
           const content = (
             <div
               className={`flex items-start gap-3 rounded-2xl p-4 shadow-atmospheric transition-shadow hover:shadow-md ${
