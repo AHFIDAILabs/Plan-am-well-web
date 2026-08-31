@@ -60,6 +60,11 @@ export default function CommunityPage() {
                   {event.category}
                 </span>
               )}
+              {!!event.ticketPriceKobo && (
+                <span className="absolute right-3 top-3 rounded-full bg-primary px-2.5 py-1 text-xs font-semibold text-on-primary shadow-sm">
+                  ₦{(event.ticketPriceKobo / 100).toLocaleString()}
+                </span>
+              )}
             </div>
             <div className="p-4">
               <p className="font-semibold text-heading">{event.title}</p>

@@ -9,8 +9,12 @@ import { Input } from "@/components/ui/Input";
 import { Modal } from "@/components/ui/Modal";
 import { GuestGate } from "@/components/auth/GuestGate";
 import { useAuth } from "@/context/AuthContext";
-import { CommunityEvent } from "@/lib/types";
+import { CommunityEvent, buildReferralUrl } from "@/lib/types";
 import { EventBanner } from "@/components/community/EventBanner";
+
+function formatNaira(kobo: number): string {
+  return `₦${(kobo / 100).toLocaleString()}`;
+}
 
 export default function CommunityEventDetailPage() {
   const params = useParams<{ id: string }>();
@@ -24,6 +28,7 @@ export default function CommunityEventDetailPage() {
   const [saving, setSaving] = useState(false);
   const [rsvpError, setRsvpError] = useState<string | null>(null);
   const [cancelling, setCancelling] = useState(false);
+  const [paying, setPaying] = useState(false);
 
   function load() {
     apiGet<{ success: boolean; data?: CommunityEvent; message?: string }>(`/api/events/${params.id}`).then(
@@ -39,13 +44,31 @@ export default function CommunityEventDetailPage() {
 
   useEffect(load, [params.id]);
 
-  const rsvped = !!event?.myRsvp;
+  const isTicketed = !!event?.ticketPriceKobo;
+  const rsvpStatus = event?.myRsvp?.status;
+  const rsvped = rsvpStatus === "going";
+  const awaitingPayment = rsvpStatus === "pending_payment";
 
   function openRsvp() {
     setChosenName(event?.myRsvp?.chosenName ?? user?.pseudonym ?? "");
     setReminderOptIn(event?.myRsvp?.reminderOptIn ?? false);
     setRsvpError(null);
     setShowRsvp(true);
+  }
+
+  async function startTicketPayment() {
+    setPaying(true);
+    setRsvpError(null);
+    const { data } = await apiPost<{ success: boolean; message?: string; data?: { checkoutUrl?: string } }>(
+      `/api/events/${params.id}/rsvp/pay`,
+      {}
+    );
+    if (data.success && data.data?.checkoutUrl) {
+      window.location.href = data.data.checkoutUrl;
+      return;
+    }
+    setPaying(false);
+    setRsvpError(data.message ?? "Could not start payment. Please try again.");
   }
 
   async function handleRsvp() {
@@ -56,17 +79,25 @@ export default function CommunityEventDetailPage() {
     setSaving(true);
     setRsvpError(null);
 
-    const { data } = await apiPost<{ success: boolean; message?: string }>(`/api/events/${params.id}/rsvp`, {
-      chosenName: chosenName.trim(),
-      reminderOptIn,
-    });
+    const { data } = await apiPost<{ success: boolean; message?: string; requiresPayment?: boolean }>(
+      `/api/events/${params.id}/rsvp`,
+      { chosenName: chosenName.trim(), reminderOptIn }
+    );
 
     setSaving(false);
-    if (data.success) {
-      setShowRsvp(false);
-      load();
-    } else {
+    if (!data.success) {
       setRsvpError(data.message ?? "Could not RSVP to this event.");
+      return;
+    }
+
+    setShowRsvp(false);
+    if (data.requiresPayment) {
+      // Reload so event.myRsvp reflects pending_payment, then send the
+      // patient straight to checkout — no separate "now pay" click needed.
+      load();
+      await startTicketPayment();
+    } else {
+      load();
     }
   }
 
@@ -106,6 +137,11 @@ export default function CommunityEventDetailPage() {
               {event.category}
             </span>
           )}
+          {isTicketed && (
+            <span className="absolute right-4 top-4 rounded-full bg-primary px-3 py-1 text-xs font-semibold text-on-primary shadow-sm">
+              {formatNaira(event.ticketPriceKobo!)}
+            </span>
+          )}
         </div>
 
         <div className="p-6">
@@ -117,6 +153,7 @@ export default function CommunityEventDetailPage() {
           </span>
         )}
         <h1 className="mt-2 text-2xl font-bold tracking-tight text-heading">{event.title}</h1>
+        {event.organizerName && <p className="mt-1 text-sm text-muted">Hosted by {event.organizerName}</p>}
 
         <dl className="mt-6 grid grid-cols-2 gap-4 text-sm">
           <div>
@@ -147,27 +184,62 @@ export default function CommunityEventDetailPage() {
             You&apos;re RSVP&apos;d as <strong>{event.myRsvp?.chosenName}</strong>.
           </p>
         )}
+        {awaitingPayment && (
+          <p className="mt-4 text-sm text-accent-amber-fg">
+            You started an RSVP but haven&apos;t completed payment yet — finish below to secure your spot.
+          </p>
+        )}
+
+        {rsvpError && <p className="mt-3 text-sm text-red-600">{rsvpError}</p>}
 
         <div className="mt-6 flex flex-wrap gap-3">
           <GuestGate feature="Event RSVP">
-            {rsvped ? (
+            {awaitingPayment ? (
               <>
-                <Button variant="outline" onClick={openRsvp}>
-                  Edit RSVP
+                <Button loading={paying} onClick={startTicketPayment}>
+                  Complete Payment ({formatNaira(event.ticketPriceKobo!)})
                 </Button>
+                <Button variant="outline" loading={cancelling} onClick={handleCancelRsvp}>
+                  Cancel
+                </Button>
+              </>
+            ) : rsvped ? (
+              <>
+                {!isTicketed && (
+                  <Button variant="outline" onClick={openRsvp}>
+                    Edit RSVP
+                  </Button>
+                )}
                 <Button variant="outline" loading={cancelling} onClick={handleCancelRsvp}>
                   Cancel RSVP
                 </Button>
               </>
             ) : (
-              <Button onClick={openRsvp}>RSVP to this event</Button>
+              <Button onClick={openRsvp}>{isTicketed ? `Get Ticket (${formatNaira(event.ticketPriceKobo!)})` : "RSVP to this event"}</Button>
             )}
           </GuestGate>
+
+          {event.registrationUrl && (
+            <a
+              href={buildReferralUrl(event.registrationUrl, event.referralCode)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex h-14 items-center justify-center rounded-full border border-tertiary px-6 text-sm font-semibold text-tertiary hover:bg-accent-blue-bg"
+            >
+              Register with {event.organizerName || "organizer"}
+            </a>
+          )}
         </div>
+        {event.registrationUrl && (
+          <p className="mt-2 text-xs text-muted">
+            Opens {event.organizerName || "the organizer"}&apos;s own registration page in a new tab — we don&apos;t
+            collect or share your details there.
+          </p>
+        )}
         </div>
       </div>
 
-      <Modal open={showRsvp} onClose={() => setShowRsvp(false)} title="RSVP">
+      <Modal open={showRsvp} onClose={() => setShowRsvp(false)} title={isTicketed ? "Get Your Ticket" : "RSVP"}>
         <div className="flex flex-col gap-4">
           <Input
             label="Chosen name (pseudonym)"
@@ -185,6 +257,13 @@ export default function CommunityEventDetailPage() {
             Remind me before this event starts
           </label>
 
+          {isTicketed && (
+            <p className="text-xs text-muted">
+              You&apos;ll be taken to payment ({formatNaira(event.ticketPriceKobo!)}) next — your spot is only
+              confirmed once payment completes.
+            </p>
+          )}
+
           {rsvpError && <p className="text-sm text-red-600">{rsvpError}</p>}
 
           <div className="mt-2 flex justify-end gap-3">
@@ -192,7 +271,7 @@ export default function CommunityEventDetailPage() {
               Cancel
             </Button>
             <Button loading={saving} onClick={handleRsvp}>
-              Confirm RSVP
+              {isTicketed ? "Continue to Payment" : "Confirm RSVP"}
             </Button>
           </div>
         </div>

@@ -235,6 +235,15 @@ export interface CommunityEvent {
   // Only present on the single-event fetch, and only ever the viewer's own
   // RSVP — never anyone else's.
   myRsvp?: EventRsvp | null;
+  // ── Organizer & monetization ────────────────────────────────────────────
+  organizerName?: string;
+  // Organizer-owned page — opened in a new tab/in-app browser, never a form
+  // we collect data through ourselves.
+  registrationUrl?: string;
+  referralCode?: string;
+  isPaidPlacement?: boolean;
+  // Undefined/0 = free event. When set, RSVP requires payment first.
+  ticketPriceKobo?: number;
 }
 
 export interface EventRsvp {
@@ -243,11 +252,25 @@ export interface EventRsvp {
   userId: string;
   chosenName: string;
   reminderOptIn: boolean;
-  status: "going" | "cancelled";
+  status: "going" | "cancelled" | "pending_payment";
 }
 
 // GET /api/events/mine/rsvps populates eventId with the full event.
 export type MyEventRsvp = Omit<EventRsvp, "eventId"> & { eventId: CommunityEvent };
+
+// Best-effort attribution only — we can't verify an organizer's own site
+// actually reads or forwards these params, only that we sent them.
+export function buildReferralUrl(registrationUrl: string, referralCode?: string): string {
+  try {
+    const url = new URL(registrationUrl);
+    url.searchParams.set("utm_source", "planamwell");
+    url.searchParams.set("utm_medium", "referral");
+    if (referralCode) url.searchParams.set("ref", referralCode);
+    return url.toString();
+  } catch {
+    return registrationUrl;
+  }
+}
 
 export interface Partner {
   _id: string;
