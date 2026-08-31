@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { headers } from "next/headers";
 import { getSession } from "./session";
 import { forwardedForHeader } from "./clientIp";
 
@@ -94,4 +95,15 @@ export async function backendFetch(req: NextRequest, path: string, init?: Reques
  */
 export async function publicBackendFetch(req: NextRequest, path: string, init?: RequestInit): Promise<Response> {
   return rawFetch(path, undefined, forwardedForHeader(req), init);
+}
+
+/**
+ * Same as publicBackendFetch, but for a Server Component (a page.tsx doing
+ * its own data fetch for generateMetadata/SSR) where no NextRequest is ever
+ * handed to you. Reads the same X-Forwarded-For via next/headers instead.
+ */
+export async function publicServerFetch(path: string, init?: RequestInit): Promise<Response> {
+  const headerList = await headers();
+  const xff = headerList.get("x-forwarded-for")?.split(",")[0]?.trim();
+  return rawFetch(path, undefined, xff ? { "X-Forwarded-For": xff } : {}, init);
 }

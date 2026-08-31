@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { apiGet } from "@/lib/api";
@@ -58,6 +58,11 @@ const CHAT_EXCHANGES: { from: "user" | "bot"; text: string }[][] = [
   ],
 ];
 
+function eventStatus(event: CommunityEvent): "active" | "expired" {
+  const endTime = new Date(event.endsAt ?? event.startsAt).getTime();
+  return endTime < Date.now() ? "expired" : "active";
+}
+
 export default function LandingPage() {
   const { portalHref, user, isAnonymous } = useMarketingLink();
   const [doctors, setDoctors] = useState<Doctor[]>([]);
@@ -70,6 +75,10 @@ export default function LandingPage() {
   const [chatPaused, setChatPaused] = useState(false);
   const partnersRef = useRef<HTMLDivElement>(null);
   const [partnersPaused, setPartnersPaused] = useState(false);
+  const [eventsPaused, setEventsPaused] = useState(false);
+  const [eventPageIndex, setEventPageIndex] = useState(0);
+  const [eventsPerPage, setEventsPerPage] = useState(3);
+  const [eventsLoading, setEventsLoading] = useState(true);
 
   useEffect(() => {
     apiGet<{ success: boolean; data?: Doctor[] }>("/api/doctors").then(({ data }) => {
@@ -81,9 +90,11 @@ export default function LandingPage() {
     apiGet<{ success: boolean; data?: Partner[] }>("/api/partners/active").then(({ data }) => {
       if (data.success && data.data) setPartners(data.data);
     });
-    apiGet<{ success: boolean; data?: CommunityEvent[] }>("/api/events").then(({ data }) => {
-      if (data.success && data.data) setEvents(data.data.slice(0, 3));
-    });
+    apiGet<{ success: boolean; data?: CommunityEvent[] }>("/api/events?all=true")
+      .then(({ data }) => {
+        if (data.success && data.data) setEvents(data.data);
+      })
+      .finally(() => setEventsLoading(false));
   }, []);
 
   // Auto-advance the partner carousel, matching the mobile home screen's
@@ -98,6 +109,55 @@ export default function LandingPage() {
     }, 3000);
     return () => clearInterval(id);
   }, [partners.length, partnersPaused]);
+
+  // Community Hub: how many event cards fit a "page" of the slide at the
+  // current viewport width — matches the grid's own sm/lg breakpoints so a
+  // page always fills its row exactly instead of leaving gaps.
+  useEffect(() => {
+    function updateEventsPerPage() {
+      const w = window.innerWidth;
+      setEventsPerPage(w < 640 ? 1 : w < 1024 ? 2 : 3);
+    }
+    updateEventsPerPage();
+    window.addEventListener("resize", updateEventsPerPage);
+    return () => window.removeEventListener("resize", updateEventsPerPage);
+  }, []);
+
+  // Upcoming events first (soonest first), then past ones (most recently
+  // ended first) — a visitor's first impression should be "what's coming
+  // up," not whichever event happens to have the latest start date.
+  const sortedEvents = useMemo(() => {
+    const upcoming = events
+      .filter((e) => eventStatus(e) === "active")
+      .sort((a, b) => new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime());
+    const past = events
+      .filter((e) => eventStatus(e) !== "active")
+      .sort((a, b) => new Date(b.endsAt ?? b.startsAt).getTime() - new Date(a.endsAt ?? a.startsAt).getTime());
+    return [...upcoming, ...past];
+  }, [events]);
+
+  const eventPages = useMemo(() => {
+    const pages: CommunityEvent[][] = [];
+    for (let i = 0; i < sortedEvents.length; i += eventsPerPage) {
+      pages.push(sortedEvents.slice(i, i + eventsPerPage));
+    }
+    return pages;
+  }, [sortedEvents, eventsPerPage]);
+
+  // Clamped at render time (not via a corrective effect) so a shrinking
+  // events list — or the responsive per-page count changing — never points
+  // at a page that no longer exists.
+  const activeEventPage = Math.min(eventPageIndex, Math.max(eventPages.length - 1, 0));
+
+  // True auto-slide (index-based, like the hero photo above) rather than a
+  // horizontally-scrollable strip — no sideways drag/scroll gesture needed,
+  // and each page is a normal responsive grid so it never overflows.
+  useEffect(() => {
+    if (eventsPaused || eventPages.length <= 1) return;
+    if (typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const id = setInterval(() => setEventPageIndex((i) => (i + 1) % eventPages.length), 4500);
+    return () => clearInterval(id);
+  }, [eventsPaused, eventPages.length]);
 
   function partnerSocialIcon(url: string): keyof typeof ICONS {
     const u = url.toLowerCase();
@@ -494,7 +554,7 @@ export default function LandingPage() {
         )}
 
         {/* Community Hub */}
-        {events.length > 0 && (
+        {(eventsLoading || events.length > 0) && (
           <section className="px-5 py-20 md:px-10">
             <div className="mx-auto max-w-6xl">
               <div className="flex flex-wrap items-end justify-between gap-4">
@@ -510,38 +570,118 @@ export default function LandingPage() {
                 </BrowseLink>
               </div>
 
-              <div className="mt-10 grid grid-cols-1 gap-6 md:grid-cols-3">
-                {events.map((event) => (
-                  <BrowseLink
-                    key={event._id}
-                    path={`/app/community/${event._id}`}
-                    className="group block overflow-hidden rounded-card border border-border bg-card-bg shadow-sm transition-all hover:-translate-y-1 hover:shadow-md"
+              {eventsLoading ? (
+                <div className="mt-10 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                  {[0, 1, 2].map((i) => (
+                    <div key={i} className="overflow-hidden rounded-card border border-border bg-card-bg shadow-sm">
+                      <div className="h-40 w-full animate-pulse bg-accent-gray-bg" />
+                      <div className="space-y-2 p-5">
+                        <div className="h-4 w-3/4 animate-pulse rounded bg-accent-gray-bg" />
+                        <div className="h-3 w-1/2 animate-pulse rounded bg-accent-gray-bg" />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+              <div
+                className="relative mt-10"
+                onMouseEnter={() => setEventsPaused(true)}
+                onMouseLeave={() => setEventsPaused(false)}
+              >
+                <div className="overflow-hidden">
+                  <div
+                    className="flex transition-transform duration-700 ease-out"
+                    style={{ transform: `translateX(-${activeEventPage * 100}%)` }}
                   >
-                    <div className="relative h-40 w-full">
-                      <EventBanner bannerImage={event.bannerImage} bannerPreset={event.bannerPreset} />
-                      {event.category && (
-                        <span className="absolute left-3 top-3 rounded-full bg-white/90 px-2.5 py-1 text-xs font-semibold text-heading shadow-sm backdrop-blur-sm">
-                          {event.category}
-                        </span>
-                      )}
-                    </div>
-                    <div className="p-5">
-                      <h3 className="text-base font-semibold text-heading">{event.title}</h3>
-                      <p className="mt-2 text-xs text-muted">
-                        {new Date(event.startsAt).toLocaleString(undefined, {
-                          weekday: "short",
-                          month: "short",
-                          day: "numeric",
-                          hour: "numeric",
-                          minute: "2-digit",
+                    {eventPages.map((page, pageIndex) => (
+                      <div key={pageIndex} className="grid w-full shrink-0 grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                        {page.map((event) => {
+                          const status = eventStatus(event);
+                          return (
+                            // Links to the public /events page (not BrowseLink into
+                            // /app/community) so this card is a plain crawlable <a
+                            // href> — the target Googlebot and link-preview bots can
+                            // actually follow and see metadata for, unlike the
+                            // auth-gated in-app route.
+                            <Link
+                              key={event._id}
+                              href={`/events/${event._id}`}
+                              className="group block overflow-hidden rounded-card border border-border bg-card-bg shadow-sm transition-all hover:-translate-y-1 hover:shadow-md"
+                            >
+                              <div className="relative h-40 w-full">
+                                <EventBanner bannerImage={event.bannerImage} bannerPreset={event.bannerPreset} />
+                                {event.category && (
+                                  <span className="absolute left-3 top-3 rounded-full bg-white/90 px-2.5 py-1 text-xs font-semibold text-heading shadow-sm backdrop-blur-sm">
+                                    {event.category}
+                                  </span>
+                                )}
+                                <span
+                                  className={`absolute right-3 top-3 rounded-full px-2.5 py-1 text-xs font-semibold shadow-sm ${
+                                    status === "active"
+                                      ? "bg-green-600 text-white"
+                                      : "bg-white/90 text-muted backdrop-blur-sm"
+                                  }`}
+                                >
+                                  {status === "active" ? "Active" : "Expired"}
+                                </span>
+                              </div>
+                              <div className="p-5">
+                                <h3 className="text-base font-semibold text-heading">{event.title}</h3>
+                                <p className="mt-2 text-xs text-muted">
+                                  {new Date(event.startsAt).toLocaleString(undefined, {
+                                    weekday: "short",
+                                    month: "short",
+                                    day: "numeric",
+                                    hour: "numeric",
+                                    minute: "2-digit",
+                                  })}
+                                  {" · "}
+                                  {event.isVirtual ? "Online" : event.location ?? "In person"}
+                                </p>
+                              </div>
+                            </Link>
+                          );
                         })}
-                        {" · "}
-                        {event.isVirtual ? "Online" : event.location ?? "In person"}
-                      </p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {eventPages.length > 1 && (
+                  <>
+                    <button
+                      type="button"
+                      aria-label="Previous events"
+                      onClick={() => setEventPageIndex((i) => (i - 1 + eventPages.length) % eventPages.length)}
+                      className="absolute left-0 top-1/2 hidden -translate-x-4 -translate-y-1/2 items-center justify-center rounded-full border border-border bg-card-bg p-2 shadow-md hover:bg-accent-blue-bg md:flex"
+                    >
+                      <Icon path={ICONS.arrowRight} className="h-4 w-4 rotate-180 text-heading" />
+                    </button>
+                    <button
+                      type="button"
+                      aria-label="Next events"
+                      onClick={() => setEventPageIndex((i) => (i + 1) % eventPages.length)}
+                      className="absolute right-0 top-1/2 hidden translate-x-4 -translate-y-1/2 items-center justify-center rounded-full border border-border bg-card-bg p-2 shadow-md hover:bg-accent-blue-bg md:flex"
+                    >
+                      <Icon path={ICONS.arrowRight} className="h-4 w-4 text-heading" />
+                    </button>
+                    <div className="mt-6 flex justify-center gap-2">
+                      {eventPages.map((_, pageIndex) => (
+                        <button
+                          key={pageIndex}
+                          type="button"
+                          aria-label={`Go to slide ${pageIndex + 1}`}
+                          onClick={() => setEventPageIndex(pageIndex)}
+                          className={`h-2 rounded-full transition-all ${
+                            pageIndex === activeEventPage ? "w-6 bg-primary" : "w-2 bg-border"
+                          }`}
+                        />
+                      ))}
                     </div>
-                  </BrowseLink>
-                ))}
+                  </>
+                )}
               </div>
+              )}
             </div>
           </section>
         )}

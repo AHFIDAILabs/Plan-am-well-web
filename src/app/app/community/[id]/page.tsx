@@ -11,6 +11,7 @@ import { GuestGate } from "@/components/auth/GuestGate";
 import { useAuth } from "@/context/AuthContext";
 import { CommunityEvent, buildReferralUrl } from "@/lib/types";
 import { EventBanner } from "@/components/community/EventBanner";
+import { EventShareActions } from "@/components/community/EventShareActions";
 
 function formatNaira(kobo: number): string {
   return `₦${(kobo / 100).toLocaleString()}`;
@@ -236,6 +237,13 @@ export default function CommunityEventDetailPage() {
             collect or share your details there.
           </p>
         )}
+
+        <div className="mt-4">
+          <EventShareActions
+            event={event}
+            publicUrl={typeof window !== "undefined" ? `${window.location.origin}/events/${event._id}` : ""}
+          />
+        </div>
         </div>
       </div>
 

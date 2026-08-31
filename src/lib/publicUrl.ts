@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { headers } from "next/headers";
 
 /**
  * The public-facing origin (protocol + host) the browser actually sent this
@@ -14,5 +15,16 @@ import { NextRequest } from "next/server";
 export function getPublicOrigin(req: NextRequest): string {
   const host = req.headers.get("x-forwarded-host") ?? req.headers.get("host") ?? req.nextUrl.host;
   const proto = req.headers.get("x-forwarded-proto") ?? req.nextUrl.protocol.replace(":", "");
+  return `${proto}://${host}`;
+}
+
+/**
+ * Same fix as getPublicOrigin, for a Server Component (generateMetadata,
+ * page.tsx) where no NextRequest is available — only next/headers is.
+ */
+export async function getPublicOriginFromHeaders(): Promise<string> {
+  const headerList = await headers();
+  const host = headerList.get("x-forwarded-host") ?? headerList.get("host") ?? "planamwell.com";
+  const proto = headerList.get("x-forwarded-proto") ?? "https";
   return `${proto}://${host}`;
 }
