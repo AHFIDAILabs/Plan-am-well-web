@@ -5,15 +5,14 @@ import { AppLogo } from "@/components/ui/AppLogo";
 import { BrowseLink } from "@/components/marketing/BrowseLink";
 import { Icon, ICONS, IconName } from "@/components/ui/Icon";
 
-// Mirrors the platform + placeholder handles used by the mobile app's own
-// SocialSticky widget (components/socials/socialMedia.tsx) — those URLs are
-// still unwired placeholders there too, so we keep them as-is rather than
-// inventing real-looking handles.
+// Mirrors the real handles used by the mobile app's own SocialSticky widget
+// (components/socials/socialMedia.tsx) — keep both in sync if these change.
 const SOCIAL_LINKS: { name: IconName; url: string; color: string; label: string }[] = [
-  { name: "facebook", url: "https://facebook.com/yourpage", color: "#4267B2", label: "Facebook" },
-  { name: "instagram", url: "https://instagram.com/yourpage", color: "#C13584", label: "Instagram" },
-  { name: "twitter", url: "https://twitter.com/yourpage", color: "#1DA1F2", label: "Twitter" },
-  { name: "linkedin", url: "https://linkedin.com/yourpage", color: "#0077B5", label: "LinkedIn" },
+  { name: "facebook", url: "https://www.facebook.com/share/1EuYS5czbR/", color: "#4267B2", label: "Facebook" },
+  { name: "instagram", url: "https://www.instagram.com/planamwell", color: "#C13584", label: "Instagram" },
+  { name: "twitter", url: "https://x.com/planamwell", color: "#1DA1F2", label: "X (Twitter)" },
+  { name: "tiktok", url: "https://www.tiktok.com/@planamwell", color: "#000000", label: "TikTok" },
+  { name: "linkedin", url: "https://www.linkedin.com/company/plan-am-well/", color: "#0077B5", label: "LinkedIn" },
 ];
 
 export function MarketingFooter() {
