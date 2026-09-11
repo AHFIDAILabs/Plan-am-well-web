@@ -56,6 +56,14 @@ export const resetPasswordSchema = z
   });
 export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>;
 
+// For the public, no-login account-deletion page (Google Play's account
+// deletion policy) — same trust level as logging in, so no strength rule.
+export const deleteAccountByCredentialsSchema = z.object({
+  email: z.email("Enter a valid email address"),
+  password: z.string().min(1, "Password is required"),
+});
+export type DeleteAccountByCredentialsInput = z.infer<typeof deleteAccountByCredentialsSchema>;
+
 // Maps a failed safeParse() result to { fieldName: firstErrorMessage }, for
 // wiring directly into each field's `error` prop.
 export function fieldErrors(error: z.ZodError): Record<string, string> {
