@@ -315,7 +315,7 @@ export default function AskAmWellPage() {
 
   return (
     <div className="flex h-[calc(100vh-7rem)] flex-col lg:h-[calc(100vh-8rem)]">
-      <div className="flex shrink-0 items-center justify-between gap-3">
+      <div className="flex shrink-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-heading">Ask AmWell AI</h1>
           <p className="mt-1 text-sm text-muted">
@@ -323,12 +323,12 @@ export default function AskAmWellPage() {
             questions.
           </p>
         </div>
-        <div className="flex shrink-0 items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <select
             value={language}
             onChange={(e) => changeLanguage(e.target.value as ChatLanguage)}
             aria-label="Reply language"
-            className="h-10 rounded-full border border-border bg-input-bg px-3 text-xs font-semibold text-heading focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+            className="h-10 shrink-0 rounded-full border border-border bg-input-bg px-3 text-xs font-semibold text-heading focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
           >
             {LANGUAGE_OPTIONS.map((opt) => (
               <option key={opt.code} value={opt.code}>
@@ -339,13 +339,13 @@ export default function AskAmWellPage() {
           <button
             type="button"
             onClick={() => setShowWhatsAppModal(true)}
-            className="flex h-10 w-10 items-center justify-center rounded-full bg-[#25D366] text-white transition-transform hover:scale-105"
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#25D366] text-white transition-transform hover:scale-105"
             aria-label="Chat on WhatsApp"
           >
             <Icon path={ICONS.whatsapp} className="h-5 w-5" />
           </button>
           {messages.length > 0 && (
-            <Button variant="outline" onClick={handleNewConversation}>
+            <Button variant="outline" onClick={handleNewConversation} className="shrink-0">
               New conversation
             </Button>
           )}

@@ -52,13 +52,13 @@ function RecordsPageContent() {
 
   return (
     <div>
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-heading">Medical Records</h1>
           <p className="mt-1 text-sm text-muted">Your consultation history and who has access to it.</p>
         </div>
         {record && (
-          <a href={`/api/records/pdf/${record.patientId}`} target="_blank" rel="noopener noreferrer">
+          <a href={`/api/records/pdf/${record.patientId}`} target="_blank" rel="noopener noreferrer" className="shrink-0">
             <Button variant="outline">Download PDF</Button>
           </a>
         )}
@@ -72,7 +72,7 @@ function RecordsPageContent() {
           <div className="mt-3 flex flex-col gap-3">
             {pending.map((req) => (
               <div key={req._id} className="rounded-xl border border-secondary bg-accent-amber-bg p-4">
-                <div className="flex items-center justify-between gap-3">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div className="flex items-center gap-3">
                     <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-full bg-white">
                       {doctorImageUrl(req.requestingDoctorId) ? (
@@ -89,7 +89,7 @@ function RecordsPageContent() {
                       <p className="text-xs text-muted">wants access to your medical record</p>
                     </div>
                   </div>
-                  <div className="flex gap-2">
+                  <div className="flex shrink-0 gap-2">
                     <Button loading={respondingId === req._id} onClick={() => respond(req._id, true)}>
                       Approve
                     </Button>

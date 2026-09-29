@@ -64,45 +64,57 @@ export default function CartPage() {
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
           <div className="flex flex-col gap-3 lg:col-span-2">
             {cart.items.map((item) => (
-              <div key={item.drugId} className="flex items-center gap-3 rounded-card bg-card-bg shadow-atmospheric p-3">
-                {item.imageUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={item.imageUrl} alt={item.drugName ?? "Product"} className="h-14 w-14 rounded-lg object-cover" />
-                ) : (
-                  <div className="h-14 w-14 shrink-0 rounded-lg bg-accent-pink-bg" />
-                )}
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-semibold text-heading">{item.drugName ?? item.drugId}</p>
-                  <p className="text-xs text-muted">₦{(item.price ?? 0).toLocaleString()} each</p>
-                  {item.dosage && <p className="text-xs text-muted">Dosage: {item.dosage}</p>}
+              <div
+                key={item.drugId}
+                className="flex flex-col gap-3 rounded-card bg-card-bg shadow-atmospheric p-3 sm:flex-row sm:items-center"
+              >
+                <div className="flex min-w-0 flex-1 items-center gap-3">
+                  {item.imageUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={item.imageUrl}
+                      alt={item.drugName ?? "Product"}
+                      className="h-14 w-14 shrink-0 rounded-lg object-cover"
+                    />
+                  ) : (
+                    <div className="h-14 w-14 shrink-0 rounded-lg bg-accent-pink-bg" />
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-semibold text-heading">{item.drugName ?? item.drugId}</p>
+                    <p className="text-xs text-muted">₦{(item.price ?? 0).toLocaleString()} each</p>
+                    {item.dosage && <p className="text-xs text-muted">Dosage: {item.dosage}</p>}
+                  </div>
                 </div>
-                <div className="flex items-center gap-2">
+
+                <div className="flex shrink-0 items-center justify-between gap-3 sm:justify-end">
+                  <div className="flex items-center gap-2">
+                    <button
+                      disabled={updatingId === item.drugId}
+                      onClick={() => updateQuantity(item.drugId, item.quantity - 1)}
+                      className="h-7 w-7 shrink-0 rounded-lg border border-border text-heading hover:border-primary disabled:opacity-40"
+                    >
+                      &minus;
+                    </button>
+                    <span className="w-6 shrink-0 text-center text-sm font-semibold text-heading">{item.quantity}</span>
+                    <button
+                      disabled={updatingId === item.drugId}
+                      onClick={() => updateQuantity(item.drugId, item.quantity + 1)}
+                      className="h-7 w-7 shrink-0 rounded-lg border border-border text-heading hover:border-primary disabled:opacity-40"
+                    >
+                      +
+                    </button>
+                  </div>
+                  <p className="shrink-0 text-right text-sm font-bold text-heading">
+                    ₦{((item.price ?? 0) * item.quantity).toLocaleString()}
+                  </p>
                   <button
                     disabled={updatingId === item.drugId}
-                    onClick={() => updateQuantity(item.drugId, item.quantity - 1)}
-                    className="h-7 w-7 rounded-lg border border-border text-heading hover:border-primary disabled:opacity-40"
+                    onClick={() => removeItem(item.drugId)}
+                    className="shrink-0 text-xs font-semibold text-red-600"
                   >
-                    &minus;
-                  </button>
-                  <span className="w-6 text-center text-sm font-semibold text-heading">{item.quantity}</span>
-                  <button
-                    disabled={updatingId === item.drugId}
-                    onClick={() => updateQuantity(item.drugId, item.quantity + 1)}
-                    className="h-7 w-7 rounded-lg border border-border text-heading hover:border-primary disabled:opacity-40"
-                  >
-                    +
+                    Remove
                   </button>
                 </div>
-                <p className="w-20 shrink-0 text-right text-sm font-bold text-heading">
-                  ₦{((item.price ?? 0) * item.quantity).toLocaleString()}
-                </p>
-                <button
-                  disabled={updatingId === item.drugId}
-                  onClick={() => removeItem(item.drugId)}
-                  className="shrink-0 text-xs font-semibold text-red-600"
-                >
-                  Remove
-                </button>
               </div>
             ))}
           </div>

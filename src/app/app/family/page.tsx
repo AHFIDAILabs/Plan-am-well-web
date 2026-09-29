@@ -117,14 +117,14 @@ function FamilyPageContent() {
 
   return (
     <div>
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-heading">Family Profiles</h1>
           <p className="mt-1 text-sm text-muted">
             Add family members so you can book appointments on their behalf.
           </p>
         </div>
-        <Button onClick={openAddForm}>Add family member</Button>
+        <Button className="shrink-0" onClick={openAddForm}>Add family member</Button>
       </div>
 
       {error && <p className="mt-4 text-sm text-red-600">{error}</p>}
