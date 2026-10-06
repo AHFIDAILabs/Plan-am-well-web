@@ -49,6 +49,28 @@ function OrderDetailPageContent() {
     );
   }
 
+  // The real (partner) payment path only updates Order.paymentStatus via an
+  // external webhook — plain polling of the order record just re-reads
+  // whatever that webhook last wrote, which does nothing if the webhook
+  // never fires (sandbox quirks, delivery delays, misconfiguration). This
+  // actively asks the backend to check the real status with the partner
+  // directly, the same fallback the mobile app's useOrderDetails hook
+  // already has, instead of trusting the webhook alone.
+  async function verifyAndLoad() {
+    try {
+      const { data: paymentData } = await apiGet<{ success: boolean; data?: { paymentReference?: string } }>(
+        `/api/payment/by-order/${params.id}`
+      );
+      const paymentReference = paymentData.data?.paymentReference;
+      if (paymentReference) {
+        await apiPost(`/api/payment/verify`, { paymentReference });
+      }
+    } catch {
+      // Best-effort — fall through to a plain reload either way.
+    }
+    load();
+  }
+
   async function handlePayNow() {
     if (!order) return;
     setPaying(true);
@@ -66,12 +88,11 @@ function OrderDetailPageContent() {
   }
 
   useEffect(() => {
-    load();
-    // Mirrors the mobile app's useOrderPaymentStatus hook: poll while
-    // payment is still pending, since the redirect page itself carries no
-    // status — the webhook updates it server-side independent of the
-    // browser tab the payment provider redirects back to.
-    pollRef.current = setInterval(load, POLL_INTERVAL_MS);
+    verifyAndLoad();
+    // Mirrors the mobile app's useOrderDetails hook: poll (and actively
+    // verify) while payment is still pending, since the redirect page
+    // itself carries no status.
+    pollRef.current = setInterval(verifyAndLoad, POLL_INTERVAL_MS);
     return () => {
       if (pollRef.current) clearInterval(pollRef.current);
     };
