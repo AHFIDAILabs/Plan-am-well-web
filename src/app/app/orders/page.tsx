@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { apiGet } from "@/lib/api";
+import { apiGet, apiPost } from "@/lib/api";
 import { PharmacySubNav } from "@/components/pharmacy/PharmacySubNav";
 import { GuestGate } from "@/components/auth/GuestGate";
 import { PharmacyOrder } from "@/lib/types";
@@ -26,10 +26,42 @@ function OrdersPageContent() {
   const [orders, setOrders] = useState<PharmacyOrder[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  // The order list only ever reflected whatever Order.paymentStatus a
+  // webhook last wrote — a pending order sat that way indefinitely if the
+  // webhook was delayed or never arrived, with nothing on this page ever
+  // asking the partner for the real status (unlike the order detail page's
+  // verifyAndLoad). Mirror that same active-verify fallback here, once per
+  // visit, for every order still shown as pending.
+  async function verifyPendingOrders(list: PharmacyOrder[]) {
+    const pending = list.filter((order) => order.paymentStatus === "pending");
+    if (pending.length === 0) return;
+
+    await Promise.allSettled(
+      pending.map(async (order) => {
+        try {
+          const { data: paymentData } = await apiGet<{ success: boolean; data?: { paymentReference?: string } }>(
+            `/api/payment/by-order/${order._id}`
+          );
+          const paymentReference = paymentData.data?.paymentReference;
+          if (paymentReference) {
+            await apiPost(`/api/payment/verify`, { paymentReference });
+          }
+        } catch {
+          // Best-effort — leave this order's status as-is on failure.
+        }
+      })
+    );
+
+    apiGet<{ success: boolean; data?: PharmacyOrder[]; message?: string }>("/api/orders").then(({ data }) => {
+      if (data.success && data.data) setOrders(data.data);
+    });
+  }
+
   useEffect(() => {
     apiGet<{ success: boolean; data?: PharmacyOrder[]; message?: string }>("/api/orders").then(({ data }) => {
       if (data.success && data.data) {
         setOrders(data.data);
+        verifyPendingOrders(data.data);
       } else {
         setError(data.message ?? "Could not load your orders.");
       }
