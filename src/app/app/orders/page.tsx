@@ -14,6 +14,18 @@ const PAYMENT_STYLES: Record<string, string> = {
   refunded: "bg-accent-gray-bg text-accent-gray-fg",
 };
 
+// Same status vocabulary/tone as the order detail page and admin dashboard
+// (app/lib/orderStatus.ts there) — this list previously showed payment
+// status only, with no way to tell a shipped order from one still pending.
+const DELIVERY_STYLES: Record<string, string> = {
+  pending: "bg-accent-amber-bg text-accent-amber-fg",
+  processing: "bg-accent-blue-bg text-accent-blue-fg",
+  shipped: "bg-accent-blue-bg text-accent-blue-fg",
+  delivered: "bg-green-100 text-green-700",
+  cancelled: "bg-accent-pink-bg text-accent-pink-fg",
+  failed: "bg-accent-pink-bg text-accent-pink-fg",
+};
+
 export default function OrdersPage() {
   return (
     <GuestGate feature="Order History">
@@ -108,6 +120,18 @@ function OrdersPageContent() {
               <span className="text-muted">{order.items.length} item(s)</span>
               <span className="font-bold text-heading">₦{order.total.toLocaleString()}</span>
             </div>
+            {order.deliveryStatus && (
+              <div className="mt-2 flex items-center justify-between text-sm">
+                <span className="text-muted">Delivery</span>
+                <span
+                  className={`rounded-full px-3 py-1 text-xs font-semibold capitalize ${
+                    DELIVERY_STYLES[order.deliveryStatus] ?? "bg-accent-gray-bg text-accent-gray-fg"
+                  }`}
+                >
+                  {order.deliveryStatus}
+                </span>
+              </div>
+            )}
           </Link>
         ))}
       </div>

@@ -17,6 +17,18 @@ const PAYMENT_COPY: Record<PharmacyOrder["paymentStatus"], { label: string; clas
   refunded: { label: "Refunded", className: "bg-accent-gray-bg text-accent-gray-fg" },
 };
 
+// Same status vocabulary and tone mapping the admin dashboard uses
+// (app/lib/orderStatus.ts) — kept consistent across web/mobile/admin rather
+// than each surface inventing its own colors for the same status.
+const DELIVERY_COPY: Record<string, { label: string; className: string }> = {
+  pending: { label: "Pending", className: "bg-accent-amber-bg text-accent-amber-fg" },
+  processing: { label: "Processing", className: "bg-accent-blue-bg text-accent-blue-fg" },
+  shipped: { label: "Shipped", className: "bg-accent-blue-bg text-accent-blue-fg" },
+  delivered: { label: "Delivered", className: "bg-green-100 text-green-700" },
+  cancelled: { label: "Cancelled", className: "bg-accent-pink-bg text-accent-pink-fg" },
+  failed: { label: "Failed", className: "bg-accent-pink-bg text-accent-pink-fg" },
+};
+
 export default function OrderDetailPage() {
   return (
     <GuestGate feature="Order details">
@@ -31,6 +43,7 @@ function OrderDetailPageContent() {
   const [error, setError] = useState<string | null>(null);
   const [paying, setPaying] = useState(false);
   const [payError, setPayError] = useState<string | null>(null);
+  const [refreshingDelivery, setRefreshingDelivery] = useState(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   function load() {
@@ -68,7 +81,30 @@ function OrderDetailPageContent() {
     } catch {
       // Best-effort — fall through to a plain reload either way.
     }
+    // Same active-verify fallback as payment above, for delivery status —
+    // otherwise this ran only once on mount (via the initial verifyAndLoad
+    // call) instead of alongside every poll tick while payment is pending.
+    try {
+      await apiGet(`/api/orders/${params.id}/delivery-status`);
+    } catch {
+      // Best-effort — plain reload below still shows whatever's in the DB.
+    }
     load();
+  }
+
+  // Manual affordance for after payment has already resolved (and polling
+  // has stopped) — delivery can keep changing for days afterwards
+  // (shipped -> delivered), and a webhook that never fires would otherwise
+  // leave this page stuck with no way to notice short of a full reload.
+  async function handleRefreshDelivery() {
+    setRefreshingDelivery(true);
+    try {
+      await apiGet(`/api/orders/${params.id}/delivery-status`);
+    } catch {
+      // Best-effort
+    }
+    load();
+    setRefreshingDelivery(false);
   }
 
   async function handlePayNow() {
@@ -190,8 +226,23 @@ function OrderDetailPageContent() {
 
         {order.deliveryStatus && (
           <div className="mt-4 border-t border-border pt-3">
-            <p className="text-xs font-semibold uppercase text-muted">Delivery status</p>
-            <p className="mt-1 text-sm capitalize text-body">{order.deliveryStatus}</p>
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-semibold uppercase text-muted">Delivery status</p>
+              <button
+                onClick={handleRefreshDelivery}
+                disabled={refreshingDelivery}
+                className="text-xs font-semibold text-primary hover:underline disabled:opacity-50"
+              >
+                {refreshingDelivery ? "Checking..." : "Refresh"}
+              </button>
+            </div>
+            <span
+              className={`mt-1 inline-block rounded-full px-3 py-1 text-xs font-semibold ${
+                (DELIVERY_COPY[order.deliveryStatus] ?? DELIVERY_COPY.pending).className
+              }`}
+            >
+              {(DELIVERY_COPY[order.deliveryStatus] ?? DELIVERY_COPY.pending).label}
+            </span>
           </div>
         )}
       </div>
